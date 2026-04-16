@@ -1,24 +1,24 @@
-import type { Metadata } from 'next'
-import { DM_Sans, Inter } from 'next/font/google'
+import type { Metadata, Viewport } from 'next'
+import { Analytics } from '@vercel/analytics/next'
+import { Toaster } from '@/components/ui/sonner'
+import { AuthProvider } from "@/components/providers/auth-provider"
+import { ChatbotWidget } from "@/components/chatbot-widget"
 import './globals.css'
 
-const dmSans = DM_Sans({ 
-  subsets: ["latin"],
-  variable: '--font-dm-sans',
-  weight: ['400', '500', '600', '700']
-});
-const inter = Inter({ 
-  subsets: ["latin"],
-  variable: '--font-inter'
-});
-
 export const metadata: Metadata = {
-  title: 'Mannochitta Sathi - Professional Online Therapy',
-  description: 'Get matched with a licensed therapist. Professional counseling, anytime, anywhere.',
+  title: 'Mannochitta Sathi - Mental Wellbeing Platform',
+  description: 'Nepal\'s largest online therapy platform. Connect with qualified therapists for mental health support through messaging, audio, and video sessions.',
+  keywords: ['mental health', 'therapy', 'counseling', 'Nepal', 'online therapy', 'therapist'],
   icons: {
-    icon: '/images/logo.png',
-    apple: '/images/logo.png',
+    icon: '/images/MS%20app%20icon%20Logo.png',
+    apple: '/images/MS%20app%20icon%20Logo.png',
   },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#166534',
+  width: 'device-width',
+  initialScale: 1,
 }
 
 export default function RootLayout({
@@ -28,8 +28,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${dmSans.variable} ${inter.variable} font-sans antialiased`}>
-        {children}
+      <body className="font-sans antialiased">
+        <AuthProvider>
+          {children}
+          <ChatbotWidget />
+          <Toaster position="top-right" />
+          <Analytics />
+        </AuthProvider>
       </body>
     </html>
   )
