@@ -1,123 +1,236 @@
-import { Header } from "@/components/header"
+"use client"
+
+import Link from "next/link"
+import { useEffect, useMemo, useState } from "react"
+import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { MessageSquare, Phone, Video, Users, Heart, Brain, Sparkles, Shield, Clock, BadgeCheck } from "lucide-react"
-import Link from "next/link"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { useAuth } from "@/components/providers/auth-provider"
+import { packageService } from "@/services"
+import type { PackagePlan, UserSubscription } from "@/lib/types"
+import {
+  User,
+  Users,
+  Heart,
+  Briefcase,
+  MessageSquare,
+  Phone,
+  Video,
+  Shield,
+  Clock,
+  Award,
+  Check,
+} from "lucide-react"
 
 const therapyTypes = [
   {
-    icon: Brain,
+    icon: User,
     title: "Individual Therapy",
-    description: "One-on-one sessions with a licensed therapist to address personal challenges, mental health concerns, and life transitions.",
-    features: ["Anxiety & Depression", "Stress Management", "Trauma & PTSD", "Self-esteem Issues"],
-    price: "From NPR 1,500 per session"
+    description:
+      "One-on-one sessions with a licensed therapist to address personal challenges, mental health concerns, and life transitions.",
+    features: [
+      "Anxiety & Depression",
+      "Stress Management",
+      "Trauma & PTSD",
+      "Self-esteem Issues",
+    ],
+    price: "From NPR 1,500 per session",
   },
   {
     icon: Users,
     title: "Couples Therapy",
-    description: "Work with a specialized couples therapist to improve communication, resolve conflicts, and strengthen your relationship.",
-    features: ["Communication Skills", "Conflict Resolution", "Trust Building", "Intimacy Issues"],
-    price: "From NPR 2,500 per session"
+    description:
+      "Work with a specialized couples therapist to improve communication, resolve conflicts, and strengthen your relationship.",
+    features: [
+      "Communication Skills",
+      "Conflict Resolution",
+      "Trust Building",
+      "Intimacy Issues",
+    ],
+    price: "From NPR 2,500 per session",
   },
   {
     icon: Heart,
     title: "Teen Counseling",
-    description: "Age-appropriate therapy for teenagers (13-19) dealing with academic pressure, social challenges, and emotional difficulties.",
-    features: ["Academic Stress", "Peer Relationships", "Identity Issues", "Family Conflicts"],
-    price: "From NPR 1,500 per session"
+    description:
+      "Age-appropriate therapy for teenagers (13-19) dealing with academic pressure, social challenges, and emotional difficulties.",
+    features: [
+      "Academic Stress",
+      "Peer Relationships",
+      "Identity Issues",
+      "Family Conflicts",
+    ],
+    price: "From NPR 1,500 per session",
   },
   {
-    icon: Sparkles,
+    icon: Briefcase,
     title: "Career Counseling",
-    description: "Professional guidance to help you navigate career decisions, workplace stress, and professional development.",
-    features: ["Career Transitions", "Workplace Stress", "Work-Life Balance", "Professional Growth"],
-    price: "From NPR 1,800 per session"
-  }
+    description:
+      "Professional guidance to help you navigate career decisions, workplace stress, and professional development.",
+    features: [
+      "Career Transitions",
+      "Workplace Stress",
+      "Work-Life Balance",
+      "Professional Growth",
+    ],
+    price: "From NPR 1,800 per session",
+  },
 ]
 
-const sessionFormats = [
+const communicationMethods = [
   {
     icon: MessageSquare,
     title: "Text Messaging",
-    description: "Send unlimited messages to your therapist and receive thoughtful responses daily. Perfect for those who prefer writing."
+    description:
+      "Send unlimited messages to your therapist and receive thoughtful responses daily. Perfect for those who prefer writing.",
   },
   {
     icon: Phone,
     title: "Audio Sessions",
-    description: "Schedule phone-style conversations with your therapist through our secure platform. Ideal for those who prefer voice communication."
+    description:
+      "Schedule phone-style conversations with your therapist through our secure platform. Ideal for those who prefer voice communication.",
   },
   {
     icon: Video,
     title: "Video Sessions",
-    description: "Face-to-face video calls that provide the closest experience to in-person therapy. Best for comprehensive sessions."
-  }
+    description:
+      "Face-to-face video calls that provide the closest experience to in-person therapy. Best for comprehensive sessions.",
+  },
 ]
 
 const benefits = [
   {
     icon: Shield,
     title: "100% Confidential",
-    description: "All communications are encrypted and protected by strict privacy policies."
+    description:
+      "All communications are encrypted and protected by strict privacy policies.",
   },
   {
     icon: Clock,
     title: "Flexible Scheduling",
-    description: "Book sessions at times that work for you, including evenings and weekends."
+    description:
+      "Book sessions at times that work for you, including evenings and weekends.",
   },
   {
-    icon: BadgeCheck,
+    icon: Award,
     title: "Licensed Professionals",
-    description: "All therapists are verified, licensed, and have years of clinical experience."
-  }
+    description:
+      "All therapists are verified, licensed, and have years of clinical experience.",
+  },
 ]
 
 export default function ServicesPage() {
+  const { user } = useAuth()
+  const [plans, setPlans] = useState<PackagePlan[]>([])
+  const [subscriptions, setSubscriptions] = useState<UserSubscription[]>([])
+  const [isLoadingPlans, setIsLoadingPlans] = useState(true)
+  const [buyingPlanId, setBuyingPlanId] = useState<string | null>(null)
+  const [packageError, setPackageError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setIsLoadingPlans(true)
+    const requests: [Promise<PackagePlan[]>, Promise<UserSubscription[]> | Promise<[]>] = [
+      packageService.listPlans(),
+      user?.role === "user" ? packageService.listMySubscriptions() : Promise.resolve([]),
+    ]
+    Promise.all(requests)
+      .then(([planData, subscriptionData]) => {
+        setPlans(planData)
+        setSubscriptions(subscriptionData)
+        setPackageError(null)
+      })
+      .catch((error) => {
+        setPackageError(error instanceof Error ? error.message : "Unable to load plans right now.")
+      })
+      .finally(() => setIsLoadingPlans(false))
+  }, [user?.role])
+
+  const activeSubscription = useMemo(
+    () =>
+      subscriptions.find(
+        (subscription) =>
+          subscription.status === "active" &&
+          subscription.paymentStatus === "paid" &&
+          subscription.remainingCredits > 0
+      ) || null,
+    [subscriptions]
+  )
+
+  const handlePurchase = async (planId: string) => {
+    if (!user) {
+      window.location.assign(`/login?next=${encodeURIComponent("/services")}`)
+      return
+    }
+    if (user.role !== "user") {
+      setPackageError("Packages can only be purchased from a user account.")
+      return
+    }
+    setBuyingPlanId(planId)
+    try {
+      const result = await packageService.purchasePlan(planId)
+      if (!result.paymentUrl) {
+        throw new Error("Plan payment initiation failed.")
+      }
+      window.location.assign(result.paymentUrl)
+    } catch (error) {
+      setPackageError(error instanceof Error ? error.message : "Unable to start package payment.")
+    } finally {
+      setBuyingPlanId(null)
+    }
+  }
+
   return (
-    <main className="min-h-screen bg-background">
-      <Header />
-      
+    <div className="min-h-screen bg-background">
+      <Navbar />
+
       {/* Hero Section */}
-      <section className="bg-primary py-16 md:py-24">
-        <div className="max-w-4xl mx-auto px-4 text-center">
-          <h1 className="text-3xl md:text-5xl font-bold text-primary-foreground mb-4 text-balance">
+      <section className="bg-primary py-16">
+        <div className="container mx-auto px-4 text-center">
+          <h1 className="text-4xl md:text-5xl font-bold text-primary-foreground mb-4">
             Our Services
           </h1>
-          <p className="text-lg md:text-xl text-primary-foreground/90 max-w-2xl mx-auto text-pretty">
+          <p className="text-lg text-primary-foreground/90 max-w-2xl mx-auto">
             Professional mental health support tailored to your needs, accessible anytime, anywhere.
           </p>
         </div>
       </section>
 
-      {/* Therapy Types */}
-      <section className="py-16 md:py-24">
-        <div className="max-w-6xl mx-auto px-4">
+      {/* Types of Therapy */}
+      <section className="py-16">
+        <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-4">
-              Types of Therapy
-            </h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+            <h2 className="text-3xl font-bold text-foreground mb-4">Types of Therapy</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
               Choose the type of therapy that best fits your situation and goals.
             </p>
           </div>
-          
-          <div className="grid md:grid-cols-2 gap-6">
-            {therapyTypes.map((therapy, index) => (
-              <Card key={index} className="border-border hover:shadow-lg transition-shadow">
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+            {therapyTypes.map((therapy) => (
+              <Card key={therapy.title} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
-                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                    <therapy.icon className="w-6 h-6 text-primary" />
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-accent rounded-lg flex items-center justify-center flex-shrink-0">
+                      <therapy.icon className="w-6 h-6 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-xl">{therapy.title}</CardTitle>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {therapy.description}
+                      </p>
+                    </div>
                   </div>
-                  <CardTitle className="text-xl text-foreground">{therapy.title}</CardTitle>
-                  <CardDescription className="text-muted-foreground">
-                    {therapy.description}
-                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2 mb-4">
-                    {therapy.features.map((feature, i) => (
-                      <li key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <div className="w-1.5 h-1.5 bg-primary rounded-full" />
+                    {therapy.features.map((feature) => (
+                      <li
+                        key={feature}
+                        className="flex items-center gap-2 text-sm text-muted-foreground"
+                      >
+                        <Check className="w-4 h-4 text-primary flex-shrink-0" />
                         {feature}
                       </li>
                     ))}
@@ -130,29 +243,25 @@ export default function ServicesPage() {
         </div>
       </section>
 
-      {/* Session Formats */}
-      <section className="py-16 md:py-24 bg-secondary">
-        <div className="max-w-6xl mx-auto px-4">
+      {/* How You Can Connect */}
+      <section className="py-16 bg-card">
+        <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-4">
-              How You Can Connect
-            </h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+            <h2 className="text-3xl font-bold text-foreground mb-4">How You Can Connect</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
               Multiple ways to communicate with your therapist based on your comfort level.
             </p>
           </div>
-          
-          <div className="grid md:grid-cols-3 gap-6">
-            {sessionFormats.map((format, index) => (
-              <Card key={index} className="border-border text-center">
-                <CardHeader>
-                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <format.icon className="w-8 h-8 text-primary" />
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            {communicationMethods.map((method) => (
+              <Card key={method.title} className="text-center">
+                <CardContent className="pt-8 pb-6">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-primary rounded-xl flex items-center justify-center">
+                    <method.icon className="w-8 h-8 text-primary-foreground" />
                   </div>
-                  <CardTitle className="text-lg text-foreground">{format.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground text-sm">{format.description}</p>
+                  <h3 className="font-semibold text-lg mb-2 text-foreground">{method.title}</h3>
+                  <p className="text-sm text-muted-foreground">{method.description}</p>
                 </CardContent>
               </Card>
             ))}
@@ -160,106 +269,182 @@ export default function ServicesPage() {
         </div>
       </section>
 
-      {/* Benefits */}
-      <section className="py-16 md:py-24">
-        <div className="max-w-6xl mx-auto px-4">
+      {/* Why Choose Us */}
+      <section className="py-16">
+        <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-4">
+            <h2 className="text-3xl font-bold text-foreground mb-4">
               Why Choose Mannochitta Sathi
             </h2>
           </div>
-          
-          <div className="grid md:grid-cols-3 gap-8">
-            {benefits.map((benefit, index) => (
-              <div key={index} className="text-center">
-                <div className="w-14 h-14 bg-accent rounded-full flex items-center justify-center mx-auto mb-4">
-                  <benefit.icon className="w-7 h-7 text-foreground" />
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            {benefits.map((benefit) => (
+              <div key={benefit.title} className="text-center">
+                <div className="w-16 h-16 mx-auto mb-4 bg-accent rounded-full flex items-center justify-center">
+                  <benefit.icon className="w-8 h-8 text-primary" />
                 </div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">{benefit.title}</h3>
-                <p className="text-muted-foreground text-sm">{benefit.description}</p>
+                <h3 className="font-semibold text-lg mb-2 text-foreground">{benefit.title}</h3>
+                <p className="text-sm text-muted-foreground">{benefit.description}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Pricing Overview */}
-      <section className="py-16 md:py-24 bg-secondary">
-        <div className="max-w-4xl mx-auto px-4">
+      {/* Pricing Section */}
+      <section className="py-16 bg-card">
+        <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-2xl md:text-4xl font-bold text-foreground mb-4">
-              Transparent Pricing
-            </h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Affordable therapy options with no hidden fees. Pay per session or subscribe for better rates.
+            <h2 className="text-3xl font-bold text-foreground mb-4">Plans and Pricing</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Buy platform-wide plans here, then use your credits later with any approved therapist who has availability.
             </p>
           </div>
-          
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card className="border-border">
-              <CardHeader className="text-center">
-                <CardTitle className="text-xl text-foreground">Pay Per Session</CardTitle>
-                <div className="text-3xl font-bold text-primary mt-2">NPR 1,500 - NPR 3,000</div>
-                <CardDescription>per session</CardDescription>
+
+          {activeSubscription ? (
+            <Card className="max-w-3xl mx-auto mb-8">
+              <CardHeader>
+                <CardTitle>Your Active Subscription</CardTitle>
               </CardHeader>
-              <CardContent className="text-center">
-                <ul className="space-y-2 text-sm text-muted-foreground mb-6">
-                  <li>No commitment required</li>
-                  <li>Choose any available therapist</li>
-                  <li>Flexible scheduling</li>
-                  <li>All session formats available</li>
-                </ul>
-                <Link href="/therapists">
-                  <Button variant="outline" className="rounded-full">
-                    Browse Therapists
-                  </Button>
-                </Link>
+              <CardContent className="space-y-2">
+                <p className="font-medium">{activeSubscription.plan.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  Credits left: {activeSubscription.remainingCredits} / {activeSubscription.totalCredits}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Expires: {activeSubscription.expiresAt ? new Date(activeSubscription.expiresAt).toLocaleString() : "Not set"}
+                </p>
+                <Button variant="outline" asChild>
+                  <Link href="/therapists">Browse Therapists</Link>
+                </Button>
               </CardContent>
             </Card>
-            
-            <Card className="border-primary border-2">
+          ) : null}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto mb-8">
+            {/* Pay Per Session */}
+            <Card>
               <CardHeader className="text-center">
-                <div className="text-xs font-semibold text-primary uppercase tracking-wide mb-2">Most Popular</div>
-                <CardTitle className="text-xl text-foreground">Monthly Subscription</CardTitle>
-                <div className="text-3xl font-bold text-primary mt-2">NPR 4,999</div>
-                <CardDescription>per month</CardDescription>
+                <CardTitle>Pay Per Session</CardTitle>
               </CardHeader>
               <CardContent className="text-center">
-                <ul className="space-y-2 text-sm text-muted-foreground mb-6">
-                  <li>4 live sessions per month</li>
-                  <li>Unlimited messaging</li>
-                  <li>Priority scheduling</li>
-                  <li>Save up to 20%</li>
+                <div className="mb-6">
+                  <span className="text-4xl font-bold text-primary">NPR 1,500 - NPR 3,000</span>
+                  <p className="text-sm text-muted-foreground mt-1">per session</p>
+                </div>
+                <ul className="space-y-3 text-sm text-muted-foreground mb-6">
+                  <li className="flex items-center justify-center gap-2">
+                    <Check className="w-4 h-4 text-primary" />
+                    No commitment required
+                  </li>
+                  <li className="flex items-center justify-center gap-2">
+                    <Check className="w-4 h-4 text-primary" />
+                    Choose any available therapist
+                  </li>
+                  <li className="flex items-center justify-center gap-2">
+                    <Check className="w-4 h-4 text-primary" />
+                    Flexible scheduling
+                  </li>
+                  <li className="flex items-center justify-center gap-2">
+                    <Check className="w-4 h-4 text-primary" />
+                    All session formats available
+                  </li>
                 </ul>
-                <Link href="/therapists">
-                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full">
-                    Get Started
-                  </Button>
-                </Link>
+                <Button variant="outline" className="w-full" asChild>
+                  <Link href="/therapists">Browse Therapists</Link>
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-primary">
+              <CardHeader className="text-center">
+                <CardTitle>Platform-Wide Subscription Plans</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Purchase a plan once in Services, then use the credits later while booking with any approved therapist on the platform.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Therapist selection still happens separately during booking.
+                </p>
               </CardContent>
             </Card>
           </div>
+
+          {packageError ? (
+            <p className="mb-6 text-center text-sm text-destructive">{packageError}</p>
+          ) : null}
+
+          {isLoadingPlans ? (
+            <p className="text-center text-muted-foreground">Loading subscription plans...</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 max-w-5xl mx-auto">
+              {plans.map((plan, index) => (
+                <Card key={plan.id} className={index === 0 ? "border-primary relative" : ""}>
+                  {index === 0 ? (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <Badge className="bg-primary text-primary-foreground">POPULAR PLAN</Badge>
+                    </div>
+                  ) : null}
+                  <CardHeader className="text-center">
+                    <CardTitle>{plan.name}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-center space-y-4">
+                    <div>
+                      <span className="text-4xl font-bold text-primary">
+                        NPR {(plan.priceAmount / 100).toLocaleString()}
+                      </span>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        valid for {plan.durationDays} days
+                      </p>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{plan.description}</p>
+                    <ul className="space-y-3 text-sm text-muted-foreground">
+                      <li className="flex items-center justify-center gap-2">
+                        <Check className="w-4 h-4 text-primary" />
+                        {plan.sessionCredits} therapist sessions included
+                      </li>
+                      <li className="flex items-center justify-center gap-2">
+                        <Check className="w-4 h-4 text-primary" />
+                        Use credits with approved therapists
+                      </li>
+                      <li className="flex items-center justify-center gap-2">
+                        <Check className="w-4 h-4 text-primary" />
+                        Book against real availability only
+                      </li>
+                    </ul>
+                    <Button
+                      className="w-full"
+                      onClick={() => handlePurchase(plan.id)}
+                      disabled={buyingPlanId === plan.id}
+                    >
+                      {buyingPlanId === plan.id ? "Redirecting..." : "Choose Plan"}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="py-16 md:py-24 bg-primary">
-        <div className="max-w-3xl mx-auto px-4 text-center">
-          <h2 className="text-2xl md:text-4xl font-bold text-primary-foreground mb-4">
+      {/* CTA Section */}
+      <section className="py-16 bg-primary">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-3xl font-bold text-primary-foreground mb-4">
             Start Your Journey Today
           </h2>
-          <p className="text-primary-foreground/90 text-lg mb-8 max-w-xl mx-auto">
+          <p className="text-primary-foreground/90 max-w-xl mx-auto mb-8">
             Take the first step towards better mental health. Get matched with a therapist in under 48 hours.
           </p>
-          <Link href="/therapists">
-            <Button variant="secondary" size="lg" className="rounded-full px-8">
-              Find Your Therapist
-            </Button>
-          </Link>
+          <Button variant="secondary" size="lg" asChild>
+            <Link href="/therapists">Find Your Therapist</Link>
+          </Button>
         </div>
       </section>
 
       <Footer />
-    </main>
+    </div>
   )
 }
