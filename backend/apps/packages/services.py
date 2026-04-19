@@ -6,7 +6,7 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from apps.appointments.models import Appointment
-from apps.appointments.services import create_appointment_event, notify_appointment_users
+from apps.appointments.services import create_appointment_event, ensure_appointment_conversation, notify_appointment_users
 from apps.notifications.models import Notification
 from apps.payments.google_calendar_service import create_google_meet_event_for_appointment
 from apps.therapists.models import TherapistAvailability, TherapistProfile
@@ -227,6 +227,7 @@ def book_with_subscription(*, user, therapist: TherapistProfile, availability_sl
         locked_slot.save(update_fields=["is_available", "updated_at"])
 
     create_appointment_event(appointment, user, appointment.status, "Booked using subscription credits.")
+    ensure_appointment_conversation(appointment)
     notify_appointment_users(appointment, "Appointment confirmed", "Your subscription-backed booking is confirmed.")
     attach_google_meet_for_package_appointment(appointment)
     return appointment

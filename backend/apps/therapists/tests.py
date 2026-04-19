@@ -120,12 +120,13 @@ class TherapistApiTests(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['data']['access']}")
         response = self.client.patch(
             "/api/v1/therapists/profiles/me/",
-            {"languages": "Nepali, English", "consultation_fee": 3500},
+            {"languages": "Nepali, English", "consultation_fee": 3500, "bio": "Updated therapist description."},
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.therapist_profile.refresh_from_db()
         self.assertEqual(self.therapist_profile.consultation_fee, 3500)
+        self.assertEqual(self.therapist_profile.bio, "Updated therapist description.")
         self.assertIn("English", self.therapist_profile.languages)
 
     def test_therapist_can_upload_profile_image(self):

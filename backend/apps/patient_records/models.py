@@ -29,3 +29,18 @@ class PatientRecord(TimeStampedModel):
             models.Index(fields=["patient", "created_at"]),
             models.Index(fields=["therapist", "created_at"]),
         ]
+
+    def save(self, *args, **kwargs):
+        # Match the Oracle handling used by appointments: optional strings are
+        # persisted as NULL instead of empty strings to avoid ORA-01401.
+        for field_name in (
+            "diagnosis_notes",
+            "recommendations",
+            "session_summary",
+            "patient_progress",
+            "next_steps",
+            "risk_flag",
+        ):
+            if getattr(self, field_name, None) == "":
+                setattr(self, field_name, None)
+        super().save(*args, **kwargs)

@@ -45,6 +45,10 @@ class PatientRecordApiTests(APITestCase):
         )
         self.therapist = TherapistProfile.objects.get(user=self.therapist_user)
         self.other_therapist = TherapistProfile.objects.get(user=self.other_therapist_user)
+        self.therapist.approval_status = TherapistProfile.STATUS_APPROVED
+        self.other_therapist.approval_status = TherapistProfile.STATUS_APPROVED
+        self.therapist.save(update_fields=["approval_status"])
+        self.other_therapist.save(update_fields=["approval_status"])
         self.appointment = Appointment.objects.create(
             user=self.patient,
             therapist=self.therapist,

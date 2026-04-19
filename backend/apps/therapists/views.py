@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 
 from apps.auditlog.models import AdminAction
 from apps.appointments.models import Appointment
+from apps.appointments.services import expire_past_availability_slots
 from apps.common.date_filters import filter_queryset_by_date
 from apps.common.permissions import IsAdminRole, IsTherapistRole
 from apps.common.responses import api_response
@@ -132,25 +133,30 @@ class TherapistAvailabilityViewSet(WrappedModelViewSet):
     ordering_fields = ("start_time", "created_at")
 
     def get_queryset(self):
+        expire_past_availability_slots()
         queryset = TherapistAvailability.objects.prefetch_related("therapist__user").order_by("start_time", "id")
         user = self.request.user
         therapist_id = self.request.query_params.get("therapist")
         if user.is_authenticated and user.role == "therapist":
-            return queryset.filter(therapist__user=user)
+            return queryset.filter(therapist__user=user, end_time__gt=timezone.now())
+        booked_slot_ids = Appointment.objects.filter(
+            status__in=Appointment.ACTIVE_STATUSES,
+            availability_slot__isnull=False,
+        ).values("availability_slot_id")
         if therapist_id:
             queryset = queryset.filter(
                 therapist_id=therapist_id,
                 therapist__approval_status=TherapistProfile.STATUS_APPROVED,
                 is_available=True,
                 start_time__gt=timezone.now(),
-            )
+            ).exclude(id__in=booked_slot_ids)
         elif not user.is_authenticated or user.role != "admin":
             queryset = queryset.filter(
                 therapist__approval_status=TherapistProfile.STATUS_APPROVED,
                 is_available=True,
                 start_time__gt=timezone.now(),
-            )
-        return queryset
+            ).exclude(id__in=booked_slot_ids)
+        return queryset.distinct()
 
     def get_permissions(self):
         if self.action in ("create", "update", "partial_update", "destroy"):

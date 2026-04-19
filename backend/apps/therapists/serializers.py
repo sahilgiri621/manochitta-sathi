@@ -148,7 +148,14 @@ class TherapistProfileSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             if profile_data:
                 UserProfile.objects.filter(user=instance.user).update(**profile_data)
-            return super().update(instance, validated_data)
+                instance.user.profile.refresh_from_db()
+            update_fields = []
+            for field, value in validated_data.items():
+                setattr(instance, field, value)
+                update_fields.append(field)
+            if update_fields:
+                instance.save(update_fields=[*update_fields, "updated_at"])
+            return instance
 
 
 class TherapistApplicationSerializer(serializers.Serializer):
@@ -191,13 +198,12 @@ class TherapistApplicationSerializer(serializers.Serializer):
         }
         therapist_data = {
             "specialization": validated_data.pop("specialization"),
-            "bio": validated_data.pop("bio", ""),
-            "qualifications": validated_data.pop("qualifications", ""),
-            "experience_years": validated_data.pop("experience_years", 0),
             "license_number": validated_data.pop("license_number"),
-            "consultation_fee": validated_data.pop("consultation_fee", None),
-            "languages": validated_data.pop("languages", ""),
         }
+        for optional_field in ("bio", "qualifications", "experience_years", "consultation_fee", "languages"):
+            value = validated_data.pop(optional_field, None)
+            if value not in ("", None):
+                therapist_data[optional_field] = value
         profile_image = validated_data.pop("profile_image", None)
 
         with transaction.atomic():
@@ -210,7 +216,7 @@ class TherapistApplicationSerializer(serializers.Serializer):
                 therapist_data["profile_image"] = profile_image
             for field, value in therapist_data.items():
                 setattr(therapist_profile, field, value)
-            therapist_profile.save()
+            therapist_profile.save(update_fields=[*therapist_data.keys(), "updated_at"])
         return therapist_profile
 
 
