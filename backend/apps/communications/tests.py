@@ -1,7 +1,11 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from apps.appointments.models import Appointment
 from apps.therapists.models import TherapistProfile
 
 from .models import Conversation, Message
@@ -28,6 +32,15 @@ class CommunicationApiTests(APITestCase):
             is_email_verified=True,
         )
         self.therapist = TherapistProfile.objects.get(user=therapist_user)
+        self.appointment = Appointment.objects.create(
+            user=self.user,
+            therapist=self.therapist,
+            session_type="video",
+            scheduled_start=timezone.now() + timedelta(days=1),
+            scheduled_end=timezone.now() + timedelta(days=1, minutes=50),
+            status=Appointment.STATUS_CONFIRMED,
+            payment_status=Appointment.PAYMENT_PAID,
+        )
 
     def test_user_can_create_conversation_and_send_message(self):
         login = self.client.post(
@@ -38,7 +51,7 @@ class CommunicationApiTests(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['data']['access']}")
         conversation_response = self.client.post(
             "/api/v1/communications/conversations/",
-            {"therapist": self.therapist.id},
+            {"appointment": self.appointment.id, "therapist": self.therapist.id},
             format="json",
         )
         self.assertEqual(conversation_response.status_code, status.HTTP_201_CREATED)

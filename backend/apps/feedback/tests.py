@@ -29,6 +29,8 @@ class FeedbackApiTests(APITestCase):
             is_email_verified=True,
         )
         self.therapist = TherapistProfile.objects.get(user=self.therapist_user)
+        self.therapist.approval_status = TherapistProfile.STATUS_APPROVED
+        self.therapist.save(update_fields=["approval_status"])
         self.appointment = Appointment.objects.create(
             user=self.user,
             therapist=self.therapist,
@@ -42,6 +44,7 @@ class FeedbackApiTests(APITestCase):
             user=self.user,
             therapist=self.therapist,
             rating=5,
+            service_rating=4,
             comment="Helpful session",
         )
 
@@ -56,6 +59,7 @@ class FeedbackApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["data"]["count"], 1)
         self.assertEqual(response.data["data"]["results"][0]["comment"], "Helpful session")
+        self.assertEqual(response.data["data"]["results"][0]["service_rating"], 4)
 
     def test_admin_can_filter_feedback_by_custom_day(self):
         admin = User.objects.create_user(

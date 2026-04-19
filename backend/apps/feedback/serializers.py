@@ -21,6 +21,7 @@ class FeedbackSerializer(serializers.ModelSerializer):
             "therapist",
             "therapist_name",
             "rating",
+            "service_rating",
             "comment",
             "created_at",
         )
