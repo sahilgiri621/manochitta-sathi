@@ -1,11 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import TherapistDetailPage from "@/app/therapists/[id]/page"
 
-const { createAppointment, listAvailability, getPublicById, listFeedback } = vi.hoisted(() => ({
+const { createAppointment, listAvailability, getPublicById, listFeedback, listMySubscriptions } = vi.hoisted(() => ({
   createAppointment: vi.fn(),
   listAvailability: vi.fn(),
   getPublicById: vi.fn(),
   listFeedback: vi.fn(),
+  listMySubscriptions: vi.fn(),
 }))
 const { push } = vi.hoisted(() => ({
   push: vi.fn(),
@@ -42,6 +43,9 @@ vi.mock("@/services", () => ({
   appointmentService: {
     create: createAppointment,
   },
+  packageService: {
+    listMySubscriptions,
+  },
 }))
 
 describe("Therapist booking flow", () => {
@@ -74,6 +78,7 @@ describe("Therapist booking flow", () => {
       },
     ])
     listFeedback.mockResolvedValue([])
+    listMySubscriptions.mockResolvedValue([])
     createAppointment.mockResolvedValue({
       id: "appointment-1",
       userId: "user-1",
@@ -116,6 +121,8 @@ describe("Therapist booking flow", () => {
         therapistId: "therapist-1",
         availabilitySlotId: "slot-1",
         sessionType: "video",
+        bookingPaymentType: "single",
+        subscriptionId: undefined,
       })
     )
     await waitFor(() => expect(push).toHaveBeenCalledWith("/dashboard/appointments/payment/appointment-1"))

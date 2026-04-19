@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { supportService } from "@/services"
 import { TicketList } from "@/components/support/ticket-list"
+import { CrisisSupportBanner } from "@/components/crisis-support-banner"
 import type { SupportTicket } from "@/lib/types"
 
 export default function SupportPage() {
@@ -43,7 +44,8 @@ export default function SupportPage() {
           <TicketList tickets={tickets} emptyText="You have not raised any support tickets yet." hrefForTicket={(id) => `/support/${id}`} />
         ) : null}
       </div>
+
+      <CrisisSupportBanner />
     </div>
   )
 }
-

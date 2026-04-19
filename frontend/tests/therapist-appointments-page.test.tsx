@@ -1,15 +1,17 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import TherapistAppointmentsPage from "@/app/(therapist)/therapist/appointments/page"
 
-const { listAppointments, completeAppointment } = vi.hoisted(() => ({
+const { listAppointments, completeAppointment, confirmAttendance } = vi.hoisted(() => ({
   listAppointments: vi.fn(),
   completeAppointment: vi.fn(),
+  confirmAttendance: vi.fn(),
 }))
 
 vi.mock("@/services", () => ({
   appointmentService: {
     list: listAppointments,
     complete: completeAppointment,
+    confirmAttendance,
   },
 }))
 
@@ -51,6 +53,7 @@ describe("Therapist appointments page", () => {
         cancellationReason: "",
         therapistResponseNote: "",
         rescheduledFrom: null,
+        requiresAttendanceConfirmation: false,
         events: [],
         createdAt: "2099-01-01T09:00:00Z",
         updatedAt: "2099-01-01T09:05:30Z",
@@ -68,10 +71,45 @@ describe("Therapist appointments page", () => {
   })
 
   it("requires the completion form payload before saving completion", async () => {
+    listAppointments.mockResolvedValueOnce([
+      {
+        id: "a1",
+        userId: "u1",
+        userName: "Patient One",
+        therapistId: "t1",
+        therapistName: "Dr Calm",
+        availabilitySlotId: "slot-1",
+        sessionType: "video",
+        scheduledStart: "2020-01-01T10:00:00Z",
+        scheduledEnd: "2020-01-01T10:50:00Z",
+        status: "confirmed",
+        paymentStatus: "paid",
+        paymentProvider: "khalti",
+        paidAmount: 250000,
+        khaltiPidx: "pidx-1",
+        paymentTransactionId: "txn-1",
+        paymentInitiatedAt: "2020-01-01T09:00:00Z",
+        paymentVerifiedAt: "2020-01-01T09:05:00Z",
+        meetingProvider: "google_meet",
+        meetingLink: "https://meet.google.com/test-link",
+        externalCalendarEventId: "calendar-event-1",
+        meetingStatus: "ready",
+        meetingCreatedAt: "2020-01-01T09:05:30Z",
+        notes: "",
+        cancellationReason: "",
+        therapistResponseNote: "",
+        rescheduledFrom: null,
+        requiresAttendanceConfirmation: true,
+        events: [],
+        createdAt: "2020-01-01T09:00:00Z",
+        updatedAt: "2020-01-01T09:05:30Z",
+      },
+    ])
     render(<TherapistAppointmentsPage />)
 
+    fireEvent.click(await screen.findByRole("tab", { name: /follow up/i }))
     await screen.findByText("Patient One")
-    fireEvent.click(screen.getByRole("button", { name: /^complete$/i }))
+    fireEvent.click(screen.getByRole("button", { name: /complete session record/i }))
     fireEvent.change(screen.getByLabelText(/session notes/i), { target: { value: "Patient participated well." } })
     fireEvent.change(screen.getByLabelText(/session summary/i), { target: { value: "Discussed coping strategies." } })
     fireEvent.change(screen.getByLabelText(/patient progress \/ condition/i), { target: { value: "Showing improvement." } })

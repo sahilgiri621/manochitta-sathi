@@ -26,7 +26,7 @@ export function Logo({ className = "", showText = true, size = "md" }: LogoProps
     <Link href="/" className={`flex items-center gap-2 transition-opacity hover:opacity-80 ${className}`}>
       <Image
         src="/images/ms-logo.png"
-        alt="Mannochitta Sathi"
+        alt="Manochitta Sathi"
         width={sizes[size].width}
         height={sizes[size].height}
         className="object-contain"
@@ -34,7 +34,7 @@ export function Logo({ className = "", showText = true, size = "md" }: LogoProps
       />
       {showText && (
         <span className={`${textSizes[size]} font-semibold text-foreground`}>
-          Mannochitta Sathi
+          Manochitta Sathi
         </span>
       )}
     </Link>
@@ -53,7 +53,7 @@ export function LogoIcon({ className = "", size = "md" }: { className?: string; 
     <div className={`flex items-center justify-center ${className}`}>
       <Image
         src="/images/ms-logo.png"
-        alt="Mannochitta Sathi"
+        alt="Manochitta Sathi"
         width={sizes[size].width}
         height={sizes[size].height}
         className="object-contain"

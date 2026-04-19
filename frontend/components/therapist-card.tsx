@@ -12,9 +12,16 @@ interface TherapistCardProps {
 }
 
 export function TherapistCard({ therapist, availableSlots = [] }: TherapistCardProps) {
+  const profileHref = `/therapists/${therapist.id}`
+
   return (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardContent className="p-4">
+    <Card className="group relative cursor-pointer overflow-hidden transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-primary/30">
+      <Link
+        href={profileHref}
+        className="absolute inset-0 z-0 cursor-pointer"
+        aria-label={`View ${therapist.user.name}'s profile`}
+      />
+      <CardContent className="pointer-events-none relative z-10 p-4">
         <div className="flex gap-4">
           {/* Avatar */}
           <div className="relative w-20 h-20 md:w-24 md:h-24 flex-shrink-0">
@@ -31,8 +38,8 @@ export function TherapistCard({ therapist, availableSlots = [] }: TherapistCardP
             <div className="flex items-start justify-between gap-2">
               <div>
                 <Link
-                  href={`/therapists/${therapist.id}`}
-                  className="font-semibold text-foreground hover:text-primary transition-colors"
+                  href={profileHref}
+                  className="pointer-events-auto relative z-20 font-semibold text-foreground transition-colors hover:text-primary"
                 >
                   {therapist.user.name}
                 </Link>
@@ -111,7 +118,7 @@ export function TherapistCard({ therapist, availableSlots = [] }: TherapistCardP
                     key={slot}
                     variant="outline"
                     size="sm"
-                    className="text-xs h-7 px-2"
+                    className="pointer-events-auto relative z-20 h-7 px-2 text-xs"
                   >
                     {slot}
                   </Button>
@@ -138,7 +145,7 @@ export function TherapistCard({ therapist, availableSlots = [] }: TherapistCardP
             <span className="text-xs text-muted-foreground ml-1">per session</span>
           </div>
           <Button asChild size="sm">
-            <Link href={`/therapists/${therapist.id}`}>Book Session</Link>
+            <Link href={profileHref} className="pointer-events-auto relative z-20">Book Session</Link>
           </Button>
         </div>
       </CardContent>

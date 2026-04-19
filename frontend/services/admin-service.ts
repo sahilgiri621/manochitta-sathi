@@ -1,7 +1,7 @@
 import { api } from "@/lib/api"
 import { packageService } from "@/services/package-service"
 import { supportService } from "@/services/support-service"
-import type { AdminAction, PackagePlan, PackagePlanInput, SupportTicket, SupportTicketMessage, SupportTicketStatus, User } from "@/lib/types"
+import type { PackagePlan, PackagePlanInput, SupportTicket, SupportTicketMessage, SupportTicketStatus, User } from "@/lib/types"
 
 export const adminService = {
   listUsers(filters?: { role?: string; isActive?: boolean; date?: string }): Promise<User[]> {
@@ -18,9 +18,6 @@ export const adminService = {
   },
   deactivateUser(id: string): Promise<User> {
     return api.deactivateAdminUser(id)
-  },
-  listActions(filters?: { date?: string }): Promise<AdminAction[]> {
-    return api.getAdminActions(filters)
   },
   listPackages(): Promise<PackagePlan[]> {
     return packageService.listPlans({ auth: true })

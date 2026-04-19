@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
+import { CrisisSupportBanner } from "@/components/crisis-support-banner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -273,23 +274,12 @@ export default function ContactPage() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-primary text-primary-foreground">
-                <CardContent className="p-6">
-                  <h3 className="font-semibold text-lg mb-2">
-                    Need Immediate Support?
-                  </h3>
-                  <p className="text-primary-foreground/90 text-sm mb-4">
-                    If you're in crisis or need immediate help, please reach out to emergency services or a crisis hotline.
-                  </p>
-                  <p className="font-medium">
-                    Nepal Crisis Helpline: 1166
-                  </p>
-                </CardContent>
-              </Card>
             </div>
           </div>
         </div>
       </section>
+
+      <CrisisSupportBanner />
 
       {/* Visit Section */}
       <section className="py-16 bg-card">

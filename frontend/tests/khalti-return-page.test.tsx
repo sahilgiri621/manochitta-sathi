@@ -5,11 +5,13 @@ const { verifyKhaltiPayment } = vi.hoisted(() => ({
   verifyKhaltiPayment: vi.fn(),
 }))
 
+let returnedPidx = "pidx-1"
+
 vi.mock("next/navigation", () => ({
   useSearchParams: () => ({
     get: (key: string) => {
       if (key === "appointment") return "a1"
-      if (key === "pidx") return "pidx-1"
+      if (key === "pidx") return returnedPidx
       return null
     },
   }),
@@ -24,6 +26,7 @@ vi.mock("@/services", () => ({
 describe("Khalti return page", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    returnedPidx = "pidx-1"
     verifyKhaltiPayment.mockResolvedValue({
       appointment: null,
       appointmentId: "a1",
@@ -39,6 +42,15 @@ describe("Khalti return page", () => {
     expect(await screen.findByText(/payment successful/i)).toBeInTheDocument()
     expect(screen.queryByText("Therapist")).not.toBeInTheDocument()
     expect(verifyKhaltiPayment).toHaveBeenCalledWith({ appointment: "a1", pidx: "pidx-1" }, { auth: false })
+  })
+
+  it("uses authenticated verification when Khalti returns no pidx", async () => {
+    returnedPidx = ""
+
+    render(<PublicKhaltiPaymentResultPage />)
+
+    expect(await screen.findByText(/payment successful/i)).toBeInTheDocument()
+    expect(verifyKhaltiPayment).toHaveBeenCalledWith({ appointment: "a1", pidx: undefined }, { auth: true })
   })
 
   it("can still render appointment summary when an authenticated verify response includes it", async () => {

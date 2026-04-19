@@ -46,8 +46,13 @@ export function KhaltiPaymentResult() {
       return
     }
 
+    const requiresAuthenticatedFallback = Boolean(appointmentId && !pidx)
+
     paymentService
-      .verifyKhaltiPayment({ appointment: appointmentId || undefined, pidx: pidx || undefined }, { auth: false })
+      .verifyKhaltiPayment(
+        { appointment: appointmentId || undefined, pidx: pidx || undefined },
+        { auth: requiresAuthenticatedFallback }
+      )
       .then((result) => {
         setAppointment(result.appointment || null)
         if (result.paymentStatus === "paid") {

@@ -40,6 +40,6 @@ describe("Feedback submission", () => {
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "Helpful" } })
     fireEvent.click(screen.getByRole("button", { name: /submit feedback/i }))
 
-    await waitFor(() => expect(submit).toHaveBeenCalledWith("a1", 4, "Helpful"))
+    await waitFor(() => expect(submit).toHaveBeenCalledWith("a1", 4, "Helpful", 5))
   })
 })

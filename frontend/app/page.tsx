@@ -20,16 +20,11 @@ import {
   XCircle,
   User,
   Heart,
-  Gift,
 } from "lucide-react"
 import { faqEntries } from "@/lib/content"
 import { FeaturedTherapists } from "@/components/home/featured-therapists"
-
-const stats = [
-  { value: "465,674,673", label: "Messages, chat, audio, video sessions" },
-  { value: "31,975", label: "Qualified therapists ready to help" },
-  { value: "6,297,112", label: "People got help" },
-]
+import { PlatformStatsSection } from "@/components/home/platform-stats"
+import { CrisisSupportBanner } from "@/components/crisis-support-banner"
 
 const comparisonFeatures = [
   { feature: "24/7 access", mannochitta: true, office: false },
@@ -102,26 +97,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="py-16 bg-card">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-            The world&apos;s largest therapy service.
-          </h2>
-          <p className="text-lg text-primary mb-12">100% online.</p>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            {stats.map((stat, index) => (
-              <div key={index}>
-                <p className="text-3xl md:text-4xl font-bold text-primary mb-2">
-                  {stat.value}
-                </p>
-                <p className="text-sm text-muted-foreground">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <PlatformStatsSection />
 
       {/* Therapists Section */}
       <section className="py-16">
@@ -253,24 +229,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Gift Section */}
-      <section className="py-16 bg-primary">
-        <div className="container mx-auto px-4 text-center">
-          <div className="w-20 h-20 mx-auto mb-6 bg-primary-foreground/20 rounded-full flex items-center justify-center">
-            <Gift className="w-10 h-10 text-primary-foreground" />
-          </div>
-          <h2 className="text-2xl md:text-3xl font-bold text-primary-foreground mb-4">
-            Give the gift of a Mannochitta Sathi membership
-          </h2>
-          <p className="text-primary-foreground/80 max-w-xl mx-auto mb-8">
-            Therapy is one of the most meaningful gifts you can give to your friends and loved ones.
-          </p>
-          <Button variant="secondary" size="lg">
-            Gift a membership
-          </Button>
-        </div>
-      </section>
-
       {/* CTA Section */}
       <section className="py-16">
         <div className="container mx-auto px-4 text-center">
@@ -285,6 +243,8 @@ export default function HomePage() {
           </Button>
         </div>
       </section>
+
+      <CrisisSupportBanner compact showSupportLink />
 
       <Footer />
     </div>

@@ -12,13 +12,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
-import { useAuth } from "@/components/providers/auth-provider"
 import { therapistService } from "@/services"
 
 export default function ForTherapistsPage() {
   const MAX_IMAGE_SIZE = 5 * 1024 * 1024
   const router = useRouter()
-  const { login } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null)
   const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null)
@@ -142,13 +140,8 @@ export default function ForTherapistsPage() {
         profileImageFile,
       })
 
-      await login({
-        email: trimmedEmail,
-        password: formData.password,
-      })
-
       toast.success("Therapist application submitted. Your profile is pending admin approval.")
-      router.push("/therapist")
+      router.push("/login")
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to submit therapist application.")
     } finally {
@@ -173,8 +166,8 @@ export default function ForTherapistsPage() {
             <CardHeader>
               <CardTitle>Therapist Application</CardTitle>
               <CardDescription>
-                After submitting, you&apos;ll be able to sign in to the therapist portal while your application remains
-                pending approval.
+                After submitting, your account will be reviewed by an admin. You can sign in to the therapist portal
+                after approval.
               </CardDescription>
             </CardHeader>
             <CardContent>

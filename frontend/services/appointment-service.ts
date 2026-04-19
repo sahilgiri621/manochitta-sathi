@@ -1,44 +1,51 @@
-import { api } from "@/lib/api"
-import type { Appointment } from "@/lib/types"
+import { api } from "@/lib/api";
+import type { Appointment } from "@/lib/types";
 
 export const appointmentService = {
   list(filters?: { date?: string }): Promise<Appointment[]> {
-    return api.getAppointments(filters)
+    return api.getAppointments(filters);
   },
   getById(id: string): Promise<Appointment> {
-    return api.getAppointment(id)
+    return api.getAppointment(id);
   },
   create(payload: {
-    therapistId: string
-    availabilitySlotId: string
-    sessionType: string
-    notes?: string
-    bookingPaymentType?: "single" | "package"
-    subscriptionId?: string
+    therapistId: string;
+    availabilitySlotId: string;
+    sessionType: string;
+    notes?: string;
+    bookingPaymentType?: "single" | "package";
+    subscriptionId?: string;
   }): Promise<Appointment> {
-    return api.createAppointment(payload)
+    return api.createAppointment(payload);
   },
   cancel(id: string, reason?: string): Promise<Appointment> {
-    return api.cancelAppointment(id, reason)
+    return api.cancelAppointment(id, reason);
   },
   accept(id: string, note?: string): Promise<Appointment> {
-    return api.acceptAppointment(id, note)
+    return api.acceptAppointment(id, note);
   },
   reject(id: string, note?: string): Promise<Appointment> {
-    return api.rejectAppointment(id, note)
+    return api.rejectAppointment(id, note);
   },
   complete(
     id: string,
     payload: {
-      notes: string
-      sessionSummary: string
-      patientProgress: string
-      recommendations: string
-      nextSteps: string
-      riskFlag?: string
-      diagnosisNotes?: string
-    }
+      notes: string;
+      sessionSummary: string;
+      patientProgress: string;
+      recommendations: string;
+      nextSteps: string;
+      riskFlag?: string;
+      diagnosisNotes?: string;
+    },
   ): Promise<Appointment> {
-    return api.completeAppointment(id, payload)
+    return api.completeAppointment(id, payload);
   },
-}
+  confirmAttendance(
+    id: string,
+    attended: boolean,
+    note?: string,
+  ): Promise<Appointment> {
+    return api.confirmAppointmentAttendance(id, attended, note);
+  },
+};

@@ -39,10 +39,12 @@ describe("Admin therapist review", () => {
 
   it("approves a therapist application", async () => {
     render(<AdminTherapistsPage />)
+    fireEvent.click(screen.getByRole("tab", { name: /unapproved therapists/i }))
     await screen.findByText("Dr Pending")
     fireEvent.change(screen.getByLabelText(/filter by date/i), { target: { value: "2026-03-22" } })
     await waitFor(() => expect(listForAdmin).toHaveBeenLastCalledWith({ date: "2026-03-22" }))
     fireEvent.click(screen.getByRole("button", { name: /approve/i }))
+    fireEvent.click(screen.getByRole("button", { name: /confirm/i }))
     await waitFor(() => expect(approve).toHaveBeenCalledWith("t1", "approved"))
   })
 })
