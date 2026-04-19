@@ -46,7 +46,12 @@ class AppointmentFlowTests(APITestCase):
         )
 
     def authenticate(self, user):
-        response = self.client.post("/api/v1/auth/login/", {"email": user.email, "password": "AdminPass123" if user == self.admin else ("UserPass123" if user == self.user else "Therapist123")}, format="json")
+        password = {
+            self.admin.email: "AdminPass123",
+            self.user.email: "UserPass123",
+            self.therapist_user.email: "Therapist123",
+        }.get(user.email, "Outsider123")
+        response = self.client.post("/api/v1/auth/login/", {"email": user.email, "password": password}, format="json")
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {response.data['data']['access']}")
 
     def test_admin_can_approve_therapist(self):
@@ -90,7 +95,9 @@ class AppointmentFlowTests(APITestCase):
         appointment.status = Appointment.STATUS_CONFIRMED
         appointment.payment_status = Appointment.PAYMENT_PAID
         appointment.availability_slot = self.slot
-        appointment.save(update_fields=["status", "payment_status", "availability_slot", "updated_at"])
+        appointment.scheduled_start = timezone.now() - timedelta(hours=2)
+        appointment.scheduled_end = timezone.now() - timedelta(hours=1)
+        appointment.save(update_fields=["status", "payment_status", "availability_slot", "scheduled_start", "scheduled_end", "updated_at"])
         self.slot.is_available = False
         self.slot.save(update_fields=["is_available", "updated_at"])
 
@@ -125,6 +132,31 @@ class AppointmentFlowTests(APITestCase):
         )
         self.assertEqual(duplicate_response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(Feedback.objects.count(), 1)
+
+    def test_user_can_confirm_past_session_attendance_or_missed_status(self):
+        appointment = self.user.appointments.create(
+            therapist=self.therapist_profile,
+            availability_slot=self.slot,
+            session_type="video",
+            scheduled_start=timezone.now() - timedelta(hours=2),
+            scheduled_end=timezone.now() - timedelta(hours=1),
+            status=Appointment.STATUS_CONFIRMED,
+            payment_status=Appointment.PAYMENT_PAID,
+        )
+
+        self.authenticate(self.user)
+        detail_response = self.client.get(f"/api/v1/appointments/{appointment.id}/")
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertTrue(detail_response.data["data"]["requires_attendance_confirmation"])
+
+        attendance_response = self.client.post(
+            f"/api/v1/appointments/{appointment.id}/attendance/",
+            {"attended": False, "note": "I missed the session."},
+            format="json",
+        )
+        self.assertEqual(attendance_response.status_code, status.HTTP_200_OK)
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, Appointment.STATUS_MISSED)
 
     def test_booking_creates_pending_payment_intent_and_keeps_slot_open(self):
         self.authenticate(self.user)

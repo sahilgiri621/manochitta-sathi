@@ -37,6 +37,7 @@ class Appointment(TimeStampedModel):
     STATUS_REJECTED = "rejected"
     STATUS_CANCELLED = "cancelled"
     STATUS_COMPLETED = "completed"
+    STATUS_MISSED = "missed"
     STATUS_RESCHEDULED = "rescheduled"
     STATUS_CHOICES = (
         (STATUS_PENDING_PAYMENT, "Pending payment"),
@@ -46,6 +47,7 @@ class Appointment(TimeStampedModel):
         (STATUS_REJECTED, "Rejected"),
         (STATUS_CANCELLED, "Cancelled"),
         (STATUS_COMPLETED, "Completed"),
+        (STATUS_MISSED, "Missed"),
         (STATUS_RESCHEDULED, "Rescheduled"),
     )
 
@@ -118,7 +120,7 @@ class Appointment(TimeStampedModel):
     meeting_created_at = models.DateTimeField(null=True, blank=True)
 
     ACTIVE_STATUSES = (STATUS_CONFIRMED, STATUS_ACCEPTED, STATUS_RESCHEDULED)
-    TERMINAL_STATUSES = (STATUS_CANCELLED, STATUS_REJECTED, STATUS_COMPLETED)
+    TERMINAL_STATUSES = (STATUS_CANCELLED, STATUS_REJECTED, STATUS_COMPLETED, STATUS_MISSED)
 
     class Meta:
         ordering = ("-scheduled_start",)

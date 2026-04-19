@@ -18,6 +18,8 @@ class AppointmentSerializer(serializers.ModelSerializer):
     therapist_name = serializers.CharField(source="therapist.user.full_name", read_only=True)
     user_name = serializers.CharField(source="user.full_name", read_only=True)
     events = AppointmentEventSerializer(many=True, read_only=True)
+    has_feedback = serializers.SerializerMethodField(read_only=True)
+    requires_attendance_confirmation = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Appointment
@@ -32,6 +34,8 @@ class AppointmentSerializer(serializers.ModelSerializer):
             "scheduled_start",
             "scheduled_end",
             "status",
+            "has_feedback",
+            "requires_attendance_confirmation",
             "payment_status",
             "booking_payment_type",
             "subscription",
@@ -111,6 +115,20 @@ class AppointmentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Single bookings cannot be attached to a package subscription.")
         return attrs
 
+    def get_has_feedback(self, obj):
+        if obj is None:
+            return False
+        return hasattr(obj, "feedback") and obj.feedback is not None
+
+    def get_requires_attendance_confirmation(self, obj):
+        if obj is None:
+            return False
+        if obj.status in (Appointment.STATUS_CANCELLED, Appointment.STATUS_REJECTED, Appointment.STATUS_COMPLETED, Appointment.STATUS_MISSED):
+            return False
+        if obj.scheduled_end and obj.scheduled_end <= timezone.now():
+            return True
+        return False
+
 
 class AppointmentDecisionSerializer(serializers.Serializer):
     note = serializers.CharField(required=False, allow_blank=True)
@@ -124,6 +142,11 @@ class AppointmentRescheduleSerializer(serializers.Serializer):
 
 class AppointmentCancelSerializer(serializers.Serializer):
     reason = serializers.CharField(required=False, allow_blank=True)
+
+
+class AppointmentAttendanceSerializer(serializers.Serializer):
+    attended = serializers.BooleanField()
+    note = serializers.CharField(required=False, allow_blank=True)
 
 
 class AppointmentCompletionSerializer(serializers.Serializer):

@@ -14,12 +14,18 @@ from apps.therapists.models import TherapistAvailability
 
 from .models import Appointment
 from .serializers import (
+    AppointmentAttendanceSerializer,
     AppointmentCancelSerializer,
     AppointmentCompletionSerializer,
     AppointmentRescheduleSerializer,
     AppointmentSerializer,
 )
-from .services import create_appointment_event, notify_appointment_users
+from .services import (
+    create_appointment_event,
+    ensure_appointment_conversation,
+    release_slot_if_no_active_booking,
+    notify_appointment_users,
+)
 
 
 class AppointmentViewSet(WrappedModelViewSet):
@@ -88,6 +94,7 @@ class AppointmentViewSet(WrappedModelViewSet):
                     }
                 )
             appointment = serializer.save(**save_kwargs)
+        ensure_appointment_conversation(appointment)
         create_appointment_event(
             appointment,
             self.request.user,
@@ -116,8 +123,7 @@ class AppointmentViewSet(WrappedModelViewSet):
             appointment.cancellation_reason = serializer.validated_data.get("reason", "")
             appointment.save(update_fields=["status", "cancellation_reason", "updated_at"])
             if appointment.availability_slot:
-                appointment.availability_slot.is_available = True
-                appointment.availability_slot.save(update_fields=["is_available", "updated_at"])
+                release_slot_if_no_active_booking(appointment.availability_slot)
             if appointment.booking_payment_type == Appointment.BOOKING_PAYMENT_TYPE_PACKAGE:
                 from apps.packages.services import restore_subscription_credit_for_appointment
 
@@ -138,6 +144,8 @@ class AppointmentViewSet(WrappedModelViewSet):
         slot = serializer.validated_data["availability_slot"]
         if slot.therapist_id != appointment.therapist_id:
             raise PermissionDenied("You can only reschedule to a slot owned by the same therapist.")
+        if not slot.is_available or slot.start_time <= timezone.now():
+            raise ValidationError("Selected availability slot is not available.")
         previous_slot = appointment.availability_slot
         appointment.rescheduled_from = appointment.rescheduled_from or appointment
         appointment.availability_slot = slot
@@ -148,19 +156,49 @@ class AppointmentViewSet(WrappedModelViewSet):
         appointment.notes = serializer.validated_data.get("notes", appointment.notes)
         appointment.save()
         if previous_slot and previous_slot.id != slot.id:
-            previous_slot.is_available = True
-            previous_slot.save(update_fields=["is_available", "updated_at"])
+            release_slot_if_no_active_booking(previous_slot)
         slot.is_available = False
         slot.save(update_fields=["is_available", "updated_at"])
         create_appointment_event(appointment, request.user, appointment.status, "Appointment rescheduled.")
         notify_appointment_users(appointment, "Appointment rescheduled", "An appointment has been rescheduled.")
         return api_response(data=AppointmentSerializer(appointment).data, message="Appointment rescheduled.")
 
+    @action(detail=True, methods=["post"])
+    def attendance(self, request, pk=None):
+        appointment = self.get_object()
+        if request.user.role != "admin" and request.user.id not in (appointment.user_id, appointment.therapist.user_id):
+            raise PermissionDenied("You are not allowed to confirm attendance for this appointment.")
+        if appointment.scheduled_end is None or appointment.scheduled_end > timezone.now():
+            raise ValidationError("Attendance can only be confirmed after the session end time.")
+        if appointment.status in Appointment.TERMINAL_STATUSES:
+            raise ValidationError("Attendance has already been finalized for this appointment.")
+        if appointment.status not in Appointment.ACTIVE_STATUSES:
+            raise ValidationError("Only booked appointments can be finalized after the session time.")
+        serializer = AppointmentAttendanceSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        attended = serializer.validated_data["attended"]
+        note = serializer.validated_data.get("note", "")
+        if attended:
+            if appointment.payment_status != Appointment.PAYMENT_PAID and appointment.booking_payment_type != Appointment.BOOKING_PAYMENT_TYPE_PACKAGE:
+                raise ValidationError("Only paid appointments can be marked as attended.")
+            appointment.status = Appointment.STATUS_COMPLETED
+            appointment.save(update_fields=["status", "updated_at"])
+            create_appointment_event(appointment, request.user, appointment.status, note or "Attendance confirmed.")
+            notify_appointment_users(appointment, "Appointment completed", "Your session was marked as completed.")
+            return api_response(data=AppointmentSerializer(appointment).data, message="Appointment marked as completed.")
+        appointment.status = Appointment.STATUS_MISSED
+        appointment.save(update_fields=["status", "updated_at"])
+        create_appointment_event(appointment, request.user, appointment.status, note or "Attendance confirmed as missed.")
+        notify_appointment_users(appointment, "Appointment missed", "Your session was marked as missed.")
+        return api_response(data=AppointmentSerializer(appointment).data, message="Appointment marked as missed.")
+
     @action(detail=True, methods=["post"], permission_classes=[IsTherapistRole])
     def complete(self, request, pk=None):
         appointment = self.get_object()
         if appointment.therapist.user_id != request.user.id:
             raise PermissionDenied("You can only complete your own appointments.")
+        if appointment.scheduled_end is None or appointment.scheduled_end > timezone.now():
+            raise ValidationError("Appointments can only be completed after the session end time.")
         if appointment.payment_status != Appointment.PAYMENT_PAID or appointment.status not in (
             Appointment.STATUS_CONFIRMED,
             Appointment.STATUS_ACCEPTED,
@@ -175,14 +213,16 @@ class AppointmentViewSet(WrappedModelViewSet):
             "patient": appointment.user,
             "therapist": therapist_profile,
             "notes": completion_data["notes"],
-            "diagnosis_notes": completion_data.get("diagnosis_notes", ""),
             "recommendations": completion_data["recommendations"],
             "session_summary": completion_data["session_summary"],
             "patient_progress": completion_data["patient_progress"],
             "next_steps": completion_data["next_steps"],
-            "risk_flag": completion_data.get("risk_flag", ""),
             "completed_at": timezone.now(),
         }
+        if completion_data.get("diagnosis_notes"):
+            record_defaults["diagnosis_notes"] = completion_data["diagnosis_notes"]
+        if completion_data.get("risk_flag"):
+            record_defaults["risk_flag"] = completion_data["risk_flag"]
         existing_record = (
             PatientRecord.objects.filter(appointment=appointment, therapist=therapist_profile)
             .order_by("-updated_at", "-id")
