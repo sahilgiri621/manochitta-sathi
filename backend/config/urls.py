@@ -21,7 +21,7 @@ from django.urls import include, path
 from rest_framework import permissions
 from rest_framework.schemas import get_schema_view
 
-from apps.common.views import HealthCheckView, SchemaUnavailableView
+from apps.common.views import HealthCheckView, PublicPlatformStatsView, SchemaUnavailableView
 
 try:
     import inflection  # noqa: F401
@@ -43,6 +43,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("health/", HealthCheckView.as_view(), name="health-check"),
     path("api/schema/", schema_view, name="api-schema"),
+    path("api/v1/public/stats/", PublicPlatformStatsView.as_view(), name="public-platform-stats"),
     path("api/v1/auth/", include("apps.accounts.urls")),
     path("api/v1/profiles/", include("apps.profiles.urls")),
     path("api/v1/therapists/", include("apps.therapists.urls")),

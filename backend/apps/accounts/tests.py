@@ -9,6 +9,7 @@ from rest_framework.test import APITestCase
 
 from apps.auditlog.models import AdminAction
 from apps.profiles.models import UserProfile
+from apps.therapists.models import TherapistProfile
 
 from .models import User
 
@@ -65,6 +66,37 @@ class AuthenticationFlowTests(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
         response = self.client.post("/api/v1/auth/logout/", {"refresh": "bad-token"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_pending_therapist_cannot_login_until_approved(self):
+        therapist = User.objects.create_user(
+            email="pending-therapist-login@example.com",
+            password="Therapist123!",
+            first_name="Pending",
+            role=User.ROLE_THERAPIST,
+            is_email_verified=True,
+        )
+
+        pending_response = self.client.post(
+            "/api/v1/auth/login/",
+            {"email": therapist.email, "password": "Therapist123!"},
+            format="json",
+        )
+
+        self.assertEqual(pending_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("approved", str(pending_response.data).lower())
+
+        therapist_profile = TherapistProfile.objects.get(user=therapist)
+        therapist_profile.approval_status = TherapistProfile.STATUS_APPROVED
+        therapist_profile.save(update_fields=["approval_status", "updated_at"])
+
+        approved_response = self.client.post(
+            "/api/v1/auth/login/",
+            {"email": therapist.email, "password": "Therapist123!"},
+            format="json",
+        )
+
+        self.assertEqual(approved_response.status_code, status.HTTP_200_OK)
+        self.assertIn("access", approved_response.data["data"])
 
     @patch("apps.accounts.views.send_verification_email")
     def test_resend_verification_sends_for_unverified_user(self, mock_send_verification_email):

@@ -118,6 +118,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         user = authenticate(request=self.context.get("request"), **credentials)
         if user is None:
             raise serializers.ValidationError("Invalid email or password.")
+        if user.role == User.ROLE_THERAPIST:
+            from apps.therapists.models import TherapistProfile
+
+            therapist_profile = TherapistProfile.objects.filter(user=user).first()
+            if therapist_profile is None or therapist_profile.approval_status != TherapistProfile.STATUS_APPROVED:
+                raise serializers.ValidationError("Your therapist application must be approved before you can sign in.")
         data = super().validate(attrs)
         data["user"] = UserSerializer(self.user).data
         return data
