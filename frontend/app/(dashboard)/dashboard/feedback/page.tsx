@@ -14,6 +14,7 @@ export default function FeedbackPage() {
   const [feedbackEntries, setFeedbackEntries] = useState<Feedback[]>([])
   const [selectedAppointment, setSelectedAppointment] = useState("")
   const [rating, setRating] = useState(5)
+  const [serviceRating, setServiceRating] = useState<number | null>(5)
   const [comment, setComment] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -64,10 +65,11 @@ export default function FeedbackPage() {
 
     setIsSubmitting(true)
     try {
-      await feedbackService.submit(selectedAppointment, Number(rating), comment.trim())
+      await feedbackService.submit(selectedAppointment, Number(rating), comment.trim(), serviceRating)
       toast.success("Feedback submitted.")
       setComment("")
       setRating(5)
+      setServiceRating(5)
       await loadData()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Unable to submit feedback.")
@@ -111,7 +113,7 @@ export default function FeedbackPage() {
                 </select>
               </div>
               <div>
-                <Label>Rating</Label>
+                <Label>How would you rate your therapist?</Label>
                 <div className="mt-2 flex gap-2">
                   {[1, 2, 3, 4, 5].map((value) => (
                     <Button
@@ -124,6 +126,25 @@ export default function FeedbackPage() {
                       {value} {value === 1 ? "Star" : "Stars"}
                     </Button>
                   ))}
+                </div>
+              </div>
+              <div>
+                <Label>How would you rate our service?</Label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {[1, 2, 3, 4, 5].map((value) => (
+                    <Button
+                      key={value}
+                      type="button"
+                      variant={serviceRating === value ? "default" : "outline"}
+                      aria-label={`service rating ${value}`}
+                      onClick={() => setServiceRating(value)}
+                    >
+                      {value} {value === 1 ? "Star" : "Stars"}
+                    </Button>
+                  ))}
+                  <Button type="button" variant={serviceRating === null ? "default" : "outline"} onClick={() => setServiceRating(null)}>
+                    Skip
+                  </Button>
                 </div>
               </div>
               <div>
@@ -151,7 +172,8 @@ export default function FeedbackPage() {
               return (
                 <div key={entry.id} className="rounded-lg border border-border p-4">
                   <p className="font-medium">{appointment?.therapistName || "Therapist"}</p>
-                  <p className="text-sm text-muted-foreground">Rating: {entry.rating}/5</p>
+                  <p className="text-sm text-muted-foreground">Therapist rating: {entry.rating}/5</p>
+                  {entry.serviceRating ? <p className="text-sm text-muted-foreground">Service rating: {entry.serviceRating}/5</p> : null}
                   {entry.comment ? <p className="mt-2 text-sm">{entry.comment}</p> : null}
                 </div>
               )

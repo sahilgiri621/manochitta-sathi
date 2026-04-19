@@ -40,6 +40,16 @@ export default function DashboardPage() {
     [appointments]
   )
 
+  const followUpAppointments = useMemo(
+    () => appointments.filter((appointment) => appointment.requiresAttendanceConfirmation),
+    [appointments]
+  )
+
+  const ratingAppointments = useMemo(
+    () => appointments.filter((appointment) => appointment.status === "completed" && !appointment.hasFeedback),
+    [appointments]
+  )
+
   const averageMood = useMemo(() => {
     if (moodEntries.length === 0) return null
     return (moodEntries.reduce((sum, entry) => sum + entry.moodScore, 0) / moodEntries.length).toFixed(1)
@@ -87,6 +97,22 @@ export default function DashboardPage() {
         <Card>
           <CardContent className="p-6">
             <p className="text-destructive">{error}</p>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {followUpAppointments.length > 0 || ratingAppointments.length > 0 ? (
+        <Card className="border-amber-300 bg-amber-50">
+          <CardContent className="flex flex-col gap-3 p-5 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="font-medium text-amber-950">Session follow-up needed</p>
+              <p className="text-sm text-amber-900">
+                {followUpAppointments.length} attendance confirmation{followUpAppointments.length === 1 ? "" : "s"} and {ratingAppointments.length} rating request{ratingAppointments.length === 1 ? "" : "s"} are waiting.
+              </p>
+            </div>
+            <Button asChild>
+              <Link href="/dashboard/appointments">Review Sessions</Link>
+            </Button>
           </CardContent>
         </Card>
       ) : null}

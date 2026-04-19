@@ -27,7 +27,12 @@ export default function TherapistDashboardPage() {
   }, [])
 
   const upcomingCount = useMemo(
-    () => appointments.filter((appointment) => ["confirmed", "accepted", "rescheduled"].includes(appointment.status)).length,
+    () => appointments.filter((appointment) => ["confirmed", "accepted", "rescheduled"].includes(appointment.status) && !appointment.requiresAttendanceConfirmation).length,
+    [appointments]
+  )
+
+  const followUpCount = useMemo(
+    () => appointments.filter((appointment) => appointment.requiresAttendanceConfirmation).length,
     [appointments]
   )
 
@@ -56,6 +61,22 @@ export default function TherapistDashboardPage() {
           </CardContent>
         </Card>
       )}
+
+      {followUpCount > 0 ? (
+        <Card className="border-amber-300 bg-amber-50">
+          <CardContent className="flex flex-col gap-3 p-5 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="font-medium text-amber-950">Session follow-up needed</p>
+              <p className="text-sm text-amber-900">
+                {followUpCount} past booked session{followUpCount === 1 ? "" : "s"} need completion or missed-session confirmation.
+              </p>
+            </div>
+            <Button asChild>
+              <Link href="/therapist/appointments">Review Sessions</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card><CardContent className="p-6"><p className="text-sm text-muted-foreground">Upcoming sessions</p><p className="text-3xl font-bold mt-2">{upcomingCount}</p></CardContent></Card>
