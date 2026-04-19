@@ -5,28 +5,25 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ConfirmActionDialog } from "@/components/admin/confirm-action-dialog"
 import { toast } from "sonner"
 import { appointmentService } from "@/services"
-import type { Appointment, AppointmentStatus } from "@/lib/types"
+import type { Appointment } from "@/lib/types"
 
-const statusOptions: Array<AppointmentStatus | "all"> = [
-  "all",
-  "pending",
-  "confirmed",
-  "accepted",
-  "rejected",
-  "cancelled",
-  "completed",
-  "rescheduled",
-]
+const bookedStatuses = ["pending_payment", "pending", "confirmed", "accepted", "rescheduled"]
+const canceledStatuses = ["cancelled", "rejected"]
+
+type AppointmentGroup = "booked" | "completed" | "missed" | "canceled"
 
 export default function AdminAppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState<AppointmentStatus | "all">("all")
   const [selectedDate, setSelectedDate] = useState("")
   const [isLoading, setIsLoading] = useState(true)
+  const [isUpdating, setIsUpdating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pendingCancel, setPendingCancel] = useState<Appointment | null>(null)
 
   const loadAppointments = async (date = selectedDate) => {
     setIsLoading(true)
@@ -46,54 +43,92 @@ export default function AdminAppointmentsPage() {
 
   const filteredAppointments = useMemo(
     () =>
-      appointments.filter((appointment) => {
-        const matchesSearch = [appointment.userName, appointment.therapistName, appointment.notes]
+      appointments.filter((appointment) =>
+        [appointment.userName, appointment.therapistName, appointment.notes, appointment.status]
           .join(" ")
           .toLowerCase()
           .includes(search.toLowerCase())
-        const matchesStatus = statusFilter === "all" || appointment.status === statusFilter
-        return matchesSearch && matchesStatus
-      }),
-    [appointments, search, statusFilter]
+      ),
+    [appointments, search]
   )
 
-  const handleCancel = async (appointment: Appointment) => {
-    const reason = window.prompt("Enter a cancellation reason for the audit trail:", "Cancelled by admin")
-    if (reason === null) return
+  const groupedAppointments = useMemo(
+    () => ({
+      booked: filteredAppointments.filter((appointment) => bookedStatuses.includes(appointment.status)),
+      completed: filteredAppointments.filter((appointment) => appointment.status === "completed"),
+      missed: filteredAppointments.filter((appointment) => appointment.status === "missed"),
+      canceled: filteredAppointments.filter((appointment) => canceledStatuses.includes(appointment.status)),
+    }),
+    [filteredAppointments]
+  )
+
+  const confirmCancel = async () => {
+    if (!pendingCancel) return
+    setIsUpdating(true)
     try {
-      await appointmentService.cancel(appointment.id, reason)
+      await appointmentService.cancel(pendingCancel.id, "Cancelled by admin")
       toast.success("Appointment cancelled.")
+      setPendingCancel(null)
       await loadAppointments()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Unable to cancel appointment.")
+    } finally {
+      setIsUpdating(false)
     }
+  }
+
+  const renderStatus = (appointment: Appointment) => (
+    <span className="inline-flex rounded-md border border-border px-2 py-1 text-xs font-medium capitalize text-muted-foreground">
+      {appointment.status.replaceAll("_", " ")}
+    </span>
+  )
+
+  const renderAppointmentCard = (appointment: Appointment) => (
+    <div key={appointment.id} className="rounded-lg border border-border p-4 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-medium">{appointment.userName} with {appointment.therapistName}</p>
+          {renderStatus(appointment)}
+        </div>
+        <p className="text-sm text-muted-foreground">{new Date(appointment.scheduledStart).toLocaleString()}</p>
+        <p className="text-sm text-muted-foreground capitalize">Payment: {appointment.paymentStatus}</p>
+        {appointment.notes ? <p className="text-sm">{appointment.notes}</p> : null}
+        {appointment.cancellationReason ? (
+          <p className="text-sm text-muted-foreground">Cancellation reason: {appointment.cancellationReason}</p>
+        ) : null}
+      </div>
+      <div className="flex gap-2">
+        {bookedStatuses.includes(appointment.status) ? (
+          <Button variant="destructive" onClick={() => setPendingCancel(appointment)}>
+            Cancel
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  )
+
+  const renderAppointmentList = (group: AppointmentGroup, emptyMessage: string) => {
+    if (isLoading) return <p className="text-muted-foreground">Loading appointments...</p>
+    if (error) return <p className="text-destructive">{error}</p>
+    const items = groupedAppointments[group]
+    if (items.length === 0) return <p className="text-muted-foreground">{emptyMessage}</p>
+    return <div className="space-y-3">{items.map(renderAppointmentCard)}</div>
   }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Appointments</h1>
-        <p className="text-muted-foreground">Oversee appointment activity and intervene when sessions need to be cancelled.</p>
+        <p className="text-muted-foreground">Manage appointment activity by booking status.</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Appointment Oversight</CardTitle>
+          <CardTitle>Filters</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_220px_200px_auto] md:items-end">
-            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by user, therapist, or notes" />
-            <select
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as AppointmentStatus | "all")}
-            >
-              {statusOptions.map((status) => (
-                <option key={status} value={status}>
-                  {status === "all" ? "All statuses" : status}
-                </option>
-              ))}
-            </select>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_200px_auto] md:items-end">
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by user, therapist, notes, or status" />
             <div className="space-y-2">
               <Label htmlFor="appointments-date">Filter by Date</Label>
               <Input id="appointments-date" type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} />
@@ -102,42 +137,87 @@ export default function AdminAppointmentsPage() {
               Reset
             </Button>
           </div>
-
-          {isLoading ? (
-            <p className="text-muted-foreground">Loading appointments...</p>
-          ) : error ? (
-            <p className="text-destructive">{error}</p>
-          ) : filteredAppointments.length === 0 ? (
-            <p className="text-muted-foreground">
-              {selectedDate ? "No appointments were scheduled for the selected day." : "No appointments match the current search."}
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {filteredAppointments.map((appointment) => (
-                <div key={appointment.id} className="rounded-lg border border-border p-4 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                  <div>
-                    <p className="font-medium">{appointment.userName} with {appointment.therapistName}</p>
-                    <p className="text-sm text-muted-foreground capitalize">
-                      {appointment.status} • {new Date(appointment.scheduledStart).toLocaleString()}
-                    </p>
-                    {appointment.notes ? <p className="text-sm mt-2">{appointment.notes}</p> : null}
-                    {appointment.cancellationReason ? (
-                      <p className="text-sm mt-2 text-muted-foreground">Cancellation reason: {appointment.cancellationReason}</p>
-                    ) : null}
-                  </div>
-                  <div className="flex gap-2">
-                    {["pending", "confirmed", "accepted", "rescheduled"].includes(appointment.status) ? (
-                      <Button variant="destructive" onClick={() => handleCancel(appointment)}>
-                        Cancel
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </CardContent>
       </Card>
+
+      <Tabs defaultValue="booked">
+        <TabsList>
+          <TabsTrigger value="booked">Booked</TabsTrigger>
+          <TabsTrigger value="completed">Completed</TabsTrigger>
+          <TabsTrigger value="missed">Missed</TabsTrigger>
+          <TabsTrigger value="canceled">Canceled</TabsTrigger>
+        </TabsList>
+        <TabsContent value="booked" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Booked Appointments</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {renderAppointmentList(
+                "booked",
+                selectedDate ? "No booked appointments were scheduled on the selected day." : "No booked appointments found."
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="completed" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Completed Appointments</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {renderAppointmentList(
+                "completed",
+                selectedDate ? "No completed appointments were scheduled on the selected day." : "No completed appointments found."
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="missed" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Missed Appointments</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {renderAppointmentList(
+                "missed",
+                selectedDate ? "No missed appointments were scheduled on the selected day." : "No missed appointments found."
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="canceled" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Canceled Appointments</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {renderAppointmentList(
+                "canceled",
+                selectedDate ? "No canceled appointments were scheduled on the selected day." : "No canceled appointments found."
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      <ConfirmActionDialog
+        open={Boolean(pendingCancel)}
+        onOpenChange={(open) => {
+          if (!open && !isUpdating) setPendingCancel(null)
+        }}
+        title="Are you sure?"
+        description={
+          pendingCancel
+            ? `Confirm cancellation for ${pendingCancel.userName} with ${pendingCancel.therapistName}.`
+            : "Confirm appointment cancellation."
+        }
+        confirmLabel="Confirm"
+        cancelLabel="Cancel"
+        destructive
+        isWorking={isUpdating}
+        onConfirm={confirmCancel}
+      />
     </div>
   )
 }

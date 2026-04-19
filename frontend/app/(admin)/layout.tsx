@@ -24,7 +24,6 @@ import {
   Calendar,
   MessageSquareQuote,
   LifeBuoy,
-  ClipboardList,
   Wallet,
   Bell,
   Menu,
@@ -44,7 +43,6 @@ const sidebarLinks = [
   { href: "/admin/packages", label: "Packages", icon: Wallet },
   { href: "/admin/resources", label: "Resources", icon: BookOpen },
   { href: "/admin/categories", label: "Categories", icon: FolderTree },
-  { href: "/admin/audit-logs", label: "Audit Logs", icon: ClipboardList },
 ]
 
 function Sidebar({ className }: { className?: string }) {
