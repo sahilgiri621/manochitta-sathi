@@ -1,6 +1,9 @@
 import type {
   Appointment,
   AIChatReply,
+  AdminRevenueReport,
+  AdminRevenueRow,
+  AdminRevenueTherapistTotal,
   AIChatMessagePayload,
   AuthSession,
   AuthTokens,
@@ -13,6 +16,7 @@ import type {
   PackagePlanInput,
   PackagePurchaseInitiation,
   PackageVerificationResult,
+  PatientProfile,
   PatientRecord,
   LoginCredentials,
   Message,
@@ -29,6 +33,7 @@ import type {
   SupportIssueType,
   SupportTicketStatus,
   TherapistClinic,
+  TherapistCommissionRule,
   Therapist,
   TherapistFilters,
   User,
@@ -58,6 +63,50 @@ function getConfiguredBackendOrigin() {
 
 function buildApiUrl(endpoint: string) {
   return `${getApiBaseUrl()}${endpoint}`;
+}
+
+function getEndpointFromPaginatedUrl(value: string) {
+  if (!value) return value;
+  try {
+    const url = new URL(value);
+    const apiPrefix = "/api/v1";
+    const path = url.pathname.includes(apiPrefix)
+      ? url.pathname.slice(url.pathname.indexOf(apiPrefix) + apiPrefix.length)
+      : url.pathname;
+    return `${path}${url.search}`;
+  } catch {
+    const apiPrefix = "/api/v1";
+    return value.startsWith(apiPrefix) ? value.slice(apiPrefix.length) : value;
+  }
+}
+
+function appendPaginationParams(
+  params: URLSearchParams,
+  filters?: { page?: number; pageSize?: number; search?: string },
+) {
+  if (filters?.page) params.set("page", String(filters.page));
+  if (filters?.pageSize) params.set("page_size", String(filters.pageSize));
+  if (filters?.search) params.set("search", filters.search);
+}
+
+function normalizePaginatedResponse<T>(
+  data: PaginatedResponse<Record<string, unknown>> | Record<string, unknown>[],
+  normalize: (item: Record<string, unknown>) => T,
+): PaginatedResponse<T> {
+  if (Array.isArray(data)) {
+    return {
+      count: data.length,
+      next: null,
+      previous: null,
+      results: data.map((item) => normalize(item)),
+    };
+  }
+  return {
+    count: data.count,
+    next: data.next,
+    previous: data.previous,
+    results: data.results.map((item) => normalize(item)),
+  };
 }
 
 const TOKEN_STORAGE_KEY = "ms_auth_tokens";
@@ -213,6 +262,16 @@ function normalizeTherapist(payload: Record<string, unknown>): Therapist {
     languages,
     sessionTypes: ["video", "audio", "chat"],
     pricePerSession: Number(payload.consultation_fee || 0),
+    completedSessions: Number(payload.completed_sessions || 0),
+    commissionRate: Number(payload.commission_rate || 0),
+    commissionTier: String(payload.commission_tier || ""),
+    totalEarnings: Number(payload.total_earnings || 0),
+    nextTierName: String(payload.next_tier_name || "") || undefined,
+    nextTierMinSessions:
+      payload.next_tier_min_sessions === null ||
+      payload.next_tier_min_sessions === undefined
+        ? null
+        : Number(payload.next_tier_min_sessions),
     rating: Number(payload.rating || 0),
     reviewCount: Number(payload.review_count || 0),
     isApproved: String(payload.approval_status) === "approved",
@@ -225,6 +284,24 @@ function normalizeTherapist(payload: Record<string, unknown>): Therapist {
     clinic: payload.clinic
       ? normalizeTherapistClinic(payload.clinic as Record<string, unknown>)
       : null,
+  };
+}
+
+function normalizeTherapistCommissionRule(
+  payload: Record<string, unknown>,
+): TherapistCommissionRule {
+  return {
+    id: String(payload.id || ""),
+    tierName: String(payload.tier_name || ""),
+    minSessions: Number(payload.min_sessions || 0),
+    maxSessions:
+      payload.max_sessions === null || payload.max_sessions === undefined
+        ? null
+        : Number(payload.max_sessions),
+    commissionRate: Number(payload.commission_rate || 0),
+    isActive: Boolean(payload.is_active),
+    createdAt: String(payload.created_at || ""),
+    updatedAt: String(payload.updated_at || ""),
   };
 }
 
@@ -400,6 +477,26 @@ function normalizeAppointment(payload: Record<string, unknown>): Appointment {
     externalCalendarEventId: String(payload.external_calendar_event_id || ""),
     meetingStatus: String(payload.meeting_status || ""),
     meetingCreatedAt: String(payload.meeting_created_at || ""),
+    sessionPrice:
+      payload.session_price === null || payload.session_price === undefined
+        ? null
+        : Number(payload.session_price),
+    commissionRateUsed:
+      payload.commission_rate_used === null ||
+      payload.commission_rate_used === undefined
+        ? null
+        : Number(payload.commission_rate_used),
+    platformCommission:
+      payload.platform_commission === null ||
+      payload.platform_commission === undefined
+        ? null
+        : Number(payload.platform_commission),
+    therapistEarning:
+      payload.therapist_earning === null ||
+      payload.therapist_earning === undefined
+        ? null
+        : Number(payload.therapist_earning),
+    tierUsed: payload.tier_used ? String(payload.tier_used) : null,
     notes: String(payload.notes || ""),
     cancellationReason: String(payload.cancellation_reason || ""),
     therapistResponseNote: String(payload.therapist_response_note || ""),
@@ -550,6 +647,43 @@ function normalizeFeedback(payload: Record<string, unknown>): Feedback {
   };
 }
 
+function normalizeAdminRevenueRow(payload: Record<string, unknown>): AdminRevenueRow {
+  return {
+    id: String(payload.id || ""),
+    therapistId: String(payload.therapist_id || ""),
+    therapistName: String(payload.therapist_name || ""),
+    therapistEmail: String(payload.therapist_email || ""),
+    userName: String(payload.user_name || ""),
+    sessionType: String(payload.session_type || "video") as AdminRevenueRow["sessionType"],
+    scheduledStart: String(payload.scheduled_start || ""),
+    paymentVerifiedAt: String(payload.payment_verified_at || ""),
+    sessionPrice: Number(payload.session_price || 0),
+    platformCommission: Number(payload.platform_commission || 0),
+    therapistEarning: Number(payload.therapist_earning || 0),
+    commissionRateUsed:
+      payload.commission_rate_used === null || payload.commission_rate_used === undefined
+        ? null
+        : Number(payload.commission_rate_used),
+    tierUsed: String(payload.tier_used || ""),
+    paymentProvider: String(payload.payment_provider || ""),
+    paymentTransactionId: String(payload.payment_transaction_id || ""),
+  };
+}
+
+function normalizeAdminRevenueTherapistTotal(
+  payload: Record<string, unknown>,
+): AdminRevenueTherapistTotal {
+  return {
+    therapistId: String(payload.therapist_id || ""),
+    therapistName: String(payload.therapist_name || ""),
+    therapistEmail: String(payload.therapist_email || ""),
+    completedSessions: Number(payload.completed_sessions || 0),
+    grossRevenue: Number(payload.gross_revenue || 0),
+    therapistRevenue: Number(payload.therapist_revenue || 0),
+    platformRevenue: Number(payload.platform_revenue || 0),
+  };
+}
+
 function normalizePatientRecord(
   payload: Record<string, unknown>,
 ): PatientRecord {
@@ -573,6 +707,27 @@ function normalizePatientRecord(
     completedAt: String(payload.completed_at || ""),
     createdAt: String(payload.created_at || ""),
     updatedAt: String(payload.updated_at || ""),
+  };
+}
+
+function normalizePatientProfile(payload: Record<string, unknown>): PatientProfile {
+  return {
+    id: String(payload.id || ""),
+    name: String(payload.name || ""),
+    email: String(payload.email || ""),
+    phone: String(payload.phone || ""),
+    age:
+      payload.age === null || payload.age === undefined
+        ? null
+        : Number(payload.age),
+    gender: String(payload.gender || ""),
+    wellbeingGoals: String(payload.wellbeing_goals || ""),
+    bio: String(payload.bio || ""),
+    address: String(payload.address || ""),
+    emergencyContactName: String(payload.emergency_contact_name || ""),
+    emergencyContactPhone: String(payload.emergency_contact_phone || ""),
+    appointmentCount: Number(payload.appointment_count || 0),
+    lastAppointmentAt: String(payload.last_appointment_at || ""),
   };
 }
 
@@ -964,6 +1119,13 @@ class ApiService {
     return normalizeProfile(data);
   }
 
+  async getAssignedPatientProfiles(): Promise<PatientProfile[]> {
+    const data = await this.request<Record<string, unknown>[]>(
+      "/profiles/patients/",
+    );
+    return data.map((item) => normalizePatientProfile(item));
+  }
+
   async getTherapists(filters: TherapistFilters = {}): Promise<Therapist[]> {
     return this.listTherapists(filters, { auth: false });
   }
@@ -972,21 +1134,31 @@ class ApiService {
     filters: TherapistFilters = {},
     options: { auth?: boolean } = {},
   ): Promise<Therapist[]> {
+    const data = await this.listTherapistsPage(filters, options);
+    return data.results;
+  }
+
+  async listTherapistsPage(
+    filters: TherapistFilters = {},
+    options: { auth?: boolean } = {},
+  ): Promise<PaginatedResponse<Therapist>> {
     const params = new URLSearchParams();
+    appendPaginationParams(params, filters);
     if (filters.search) params.set("search", filters.search);
     if (filters.specialization)
       params.set("specialization", filters.specialization);
     if (filters.language) params.set("language", filters.language);
     if (filters.date) params.set("date", filters.date);
-    params.set("page_size", "100");
+    if (filters.approvalStatus)
+      params.set("approval_status", filters.approvalStatus);
+    if (!filters.pageSize) params.set("page_size", "100");
     const data = await this.request<
       PaginatedResponse<Record<string, unknown>> | Record<string, unknown>[]
     >(
       `/therapists/profiles/${params.toString() ? `?${params.toString()}` : ""}`,
       { auth: options.auth },
     );
-    const results = Array.isArray(data) ? data : data.results;
-    return results.map((item) => normalizeTherapist(item));
+    return normalizePaginatedResponse(data, normalizeTherapist);
   }
 
   async getTherapist(
@@ -1070,6 +1242,63 @@ class ApiService {
     return normalizeTherapist(data);
   }
 
+  async getTherapistCommissionRules(): Promise<TherapistCommissionRule[]> {
+    const data = await this.request<
+      PaginatedResponse<Record<string, unknown>> | Record<string, unknown>[]
+    >("/therapists/commission-rules/");
+    const results = Array.isArray(data) ? data : data.results;
+    return results.map((item) => normalizeTherapistCommissionRule(item));
+  }
+
+  async createTherapistCommissionRule(payload: {
+    tierName: string;
+    minSessions: number;
+    maxSessions?: number | null;
+    commissionRate: number;
+    isActive: boolean;
+  }): Promise<TherapistCommissionRule> {
+    const data = await this.request<Record<string, unknown>>(
+      "/therapists/commission-rules/",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          tier_name: payload.tierName,
+          min_sessions: payload.minSessions,
+          max_sessions: payload.maxSessions ?? null,
+          commission_rate: payload.commissionRate,
+          is_active: payload.isActive,
+        }),
+      },
+    );
+    return normalizeTherapistCommissionRule(data);
+  }
+
+  async updateTherapistCommissionRule(
+    id: string,
+    payload: Partial<{
+      tierName: string;
+      minSessions: number;
+      maxSessions: number | null;
+      commissionRate: number;
+      isActive: boolean;
+    }>,
+  ): Promise<TherapistCommissionRule> {
+    const data = await this.request<Record<string, unknown>>(
+      `/therapists/commission-rules/${id}/`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          tier_name: payload.tierName,
+          min_sessions: payload.minSessions,
+          max_sessions: payload.maxSessions,
+          commission_rate: payload.commissionRate,
+          is_active: payload.isActive,
+        }),
+      },
+    );
+    return normalizeTherapistCommissionRule(data);
+  }
+
   async getAvailability(therapistId?: string): Promise<AvailabilitySlot[]> {
     const query = therapistId ? `?therapist=${therapistId}` : "";
     const data = await this.request<
@@ -1116,14 +1345,53 @@ class ApiService {
     });
   }
 
-  async getAppointments(filters?: { date?: string }): Promise<Appointment[]> {
+  async getAppointments(filters?: {
+    date?: string;
+    status?: string;
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    allPages?: boolean;
+  }): Promise<Appointment[]> {
+    const data = await this.getAppointmentsPage(filters);
+    return data.results;
+  }
+
+  async getAppointmentsPage(filters?: {
+    date?: string;
+    status?: string;
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    allPages?: boolean;
+  }): Promise<PaginatedResponse<Appointment>> {
     const params = new URLSearchParams();
+    appendPaginationParams(params, filters);
     if (filters?.date) params.set("date", filters.date);
+    if (filters?.status) params.set("status", filters.status);
+    if (filters?.allPages && !filters.pageSize) params.set("page_size", "100");
     const data = await this.request<
       PaginatedResponse<Record<string, unknown>> | Record<string, unknown>[]
     >(`/appointments/${params.toString() ? `?${params.toString()}` : ""}`);
-    const results = Array.isArray(data) ? data : data.results;
-    return results.map((item) => normalizeAppointment(item));
+    if (Array.isArray(data)) {
+      return normalizePaginatedResponse(data, normalizeAppointment);
+    }
+
+    const results = [...data.results];
+    let nextUrl = filters?.allPages ? data.next : null;
+    while (nextUrl) {
+      const nextData = await this.request<PaginatedResponse<Record<string, unknown>>>(
+        getEndpointFromPaginatedUrl(nextUrl),
+      );
+      results.push(...nextData.results);
+      nextUrl = nextData.next;
+    }
+    return {
+      count: data.count,
+      next: filters?.allPages ? null : data.next,
+      previous: data.previous,
+      results: results.map((item) => normalizeAppointment(item)),
+    };
   }
 
   async getAppointment(id: string): Promise<Appointment> {
@@ -1289,13 +1557,27 @@ class ApiService {
   }
 
   async getPackagePlans(
-    options: { auth?: boolean } = { auth: false },
+    options: { auth?: boolean; page?: number; pageSize?: number; search?: string } = { auth: false },
   ): Promise<PackagePlan[]> {
+    const data = await this.getPackagePlansPage(
+      { ...options, pageSize: options.pageSize || 100 },
+      options,
+    );
+    return data.results;
+  }
+
+  async getPackagePlansPage(
+    filters?: { page?: number; pageSize?: number; search?: string },
+    options: { auth?: boolean } = { auth: false },
+  ): Promise<PaginatedResponse<PackagePlan>> {
+    const params = new URLSearchParams();
+    appendPaginationParams(params, filters);
     const data = await this.request<
       PaginatedResponse<Record<string, unknown>> | Record<string, unknown>[]
-    >("/packages/plans/", { auth: options.auth });
-    const results = Array.isArray(data) ? data : data.results;
-    return results.map((item) => normalizePackagePlan(item));
+    >(`/packages/plans/${params.toString() ? `?${params.toString()}` : ""}`, {
+      auth: options.auth,
+    });
+    return normalizePaginatedResponse(data, normalizePackagePlan);
   }
 
   async createPackagePlan(payload: PackagePlanInput): Promise<PackagePlan> {
@@ -1443,11 +1725,23 @@ class ApiService {
   }
 
   async getCategories(): Promise<ResourceCategory[]> {
+    const data = await this.getCategoriesPage({ pageSize: 100 });
+    return data.results;
+  }
+
+  async getCategoriesPage(filters?: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+  }): Promise<PaginatedResponse<ResourceCategory>> {
+    const params = new URLSearchParams();
+    appendPaginationParams(params, filters);
     const data = await this.request<
       PaginatedResponse<Record<string, unknown>> | Record<string, unknown>[]
-    >("/resources/categories/", { auth: false });
-    const results = Array.isArray(data) ? data : data.results;
-    return results.map((item) => normalizeCategory(item));
+    >(`/resources/categories/${params.toString() ? `?${params.toString()}` : ""}`, {
+      auth: false,
+    });
+    return normalizePaginatedResponse(data, normalizeCategory);
   }
 
   async getResources(params?: {
@@ -1461,17 +1755,24 @@ class ApiService {
     params?: { category?: string; search?: string },
     options: { auth?: boolean } = {},
   ): Promise<Resource[]> {
+    const data = await this.listResourcesPage(params, options);
+    return data.results;
+  }
+
+  async listResourcesPage(
+    params?: { category?: string; search?: string; page?: number; pageSize?: number },
+    options: { auth?: boolean } = {},
+  ): Promise<PaginatedResponse<Resource>> {
     const search = new URLSearchParams();
+    appendPaginationParams(search, params);
     if (params?.category && params.category !== "all")
       search.set("category", params.category);
-    if (params?.search) search.set("search", params.search);
     const data = await this.request<
       PaginatedResponse<Record<string, unknown>> | Record<string, unknown>[]
     >(`/resources/${search.toString() ? `?${search.toString()}` : ""}`, {
       auth: options.auth,
     });
-    const results = Array.isArray(data) ? data : data.results;
-    return results.map((item) => normalizeResource(item));
+    return normalizePaginatedResponse(data, normalizeResource);
   }
 
   async getResource(
@@ -1567,14 +1868,31 @@ class ApiService {
     });
   }
 
-  async getNotifications(filters?: { date?: string }): Promise<Notification[]> {
+  async getNotifications(filters?: {
+    date?: string;
+    isRead?: boolean;
+    page?: number;
+    pageSize?: number;
+  }): Promise<Notification[]> {
+    const data = await this.getNotificationsPage(filters);
+    return data.results;
+  }
+
+  async getNotificationsPage(filters?: {
+    date?: string;
+    isRead?: boolean;
+    page?: number;
+    pageSize?: number;
+  }): Promise<PaginatedResponse<Notification>> {
     const params = new URLSearchParams();
+    appendPaginationParams(params, filters);
     if (filters?.date) params.set("date", filters.date);
+    if (filters?.isRead !== undefined)
+      params.set("is_read", String(filters.isRead));
     const data = await this.request<
       PaginatedResponse<Record<string, unknown>> | Record<string, unknown>[]
     >(`/notifications/${params.toString() ? `?${params.toString()}` : ""}`);
-    const results = Array.isArray(data) ? data : data.results;
-    return results.map((item) => normalizeNotification(item));
+    return normalizePaginatedResponse(data, normalizeNotification);
   }
 
   async markNotificationRead(id: string): Promise<Notification> {
@@ -1591,14 +1909,25 @@ class ApiService {
     status?: string;
     issueType?: string;
   }): Promise<SupportTicket[]> {
+    const data = await this.getSupportTicketsPage(filters);
+    return data.results;
+  }
+
+  async getSupportTicketsPage(filters?: {
+    status?: string;
+    issueType?: string;
+    page?: number;
+    pageSize?: number;
+    search?: string;
+  }): Promise<PaginatedResponse<SupportTicket>> {
     const params = new URLSearchParams();
+    appendPaginationParams(params, filters);
     if (filters?.status) params.set("status", filters.status);
     if (filters?.issueType) params.set("issue_type", filters.issueType);
     const data = await this.request<
       PaginatedResponse<Record<string, unknown>> | Record<string, unknown>[]
     >(`/support/tickets/${params.toString() ? `?${params.toString()}` : ""}`);
-    const results = Array.isArray(data) ? data : data.results;
-    return results.map((item) => normalizeSupportTicket(item));
+    return normalizePaginatedResponse(data, normalizeSupportTicket);
   }
 
   async getSupportTicket(id: string): Promise<SupportTicket> {
@@ -1684,7 +2013,22 @@ class ApiService {
     filters?: { date?: string; therapistId?: string },
     options: { auth?: boolean } = {},
   ): Promise<Feedback[]> {
+    const data = await this.getFeedbackPage(filters, options);
+    return data.results;
+  }
+
+  async getFeedbackPage(
+    filters?: {
+      date?: string;
+      therapistId?: string;
+      page?: number;
+      pageSize?: number;
+      search?: string;
+    },
+    options: { auth?: boolean } = {},
+  ): Promise<PaginatedResponse<Feedback>> {
     const params = new URLSearchParams();
+    appendPaginationParams(params, filters);
     if (filters?.date) params.set("date", filters.date);
     if (filters?.therapistId) params.set("therapist_id", filters.therapistId);
     const data = await this.request<
@@ -1692,8 +2036,7 @@ class ApiService {
     >(`/feedback/${params.toString() ? `?${params.toString()}` : ""}`, {
       auth: options.auth,
     });
-    const results = Array.isArray(data) ? data : data.results;
-    return results.map((item) => normalizeFeedback(item));
+    return normalizePaginatedResponse(data, normalizeFeedback);
   }
 
   async getPatientRecords(filters?: {
@@ -1778,7 +2121,20 @@ class ApiService {
     isActive?: boolean;
     date?: string;
   }): Promise<User[]> {
+    const data = await this.getAdminUsersPage(filters);
+    return data.results;
+  }
+
+  async getAdminUsersPage(filters?: {
+    role?: string;
+    isActive?: boolean;
+    date?: string;
+    page?: number;
+    pageSize?: number;
+    search?: string;
+  }): Promise<PaginatedResponse<User>> {
     const params = new URLSearchParams();
+    appendPaginationParams(params, filters);
     if (filters?.role) params.set("role", filters.role);
     if (filters?.isActive !== undefined)
       params.set("is_active", String(filters.isActive));
@@ -1786,8 +2142,7 @@ class ApiService {
     const data = await this.request<
       PaginatedResponse<Record<string, unknown>> | Record<string, unknown>[]
     >(`/auth/admin/users/${params.toString() ? `?${params.toString()}` : ""}`);
-    const results = Array.isArray(data) ? data : data.results;
-    return results.map((item) => normalizeUser(item));
+    return normalizePaginatedResponse(data, normalizeUser);
   }
 
   async getAdminUser(id: string): Promise<User> {
@@ -1835,6 +2190,53 @@ class ApiService {
       },
     );
     return normalizeUser(data);
+  }
+
+  async getAdminRevenueReport(filters?: {
+    search?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<AdminRevenueReport> {
+    const params = new URLSearchParams();
+    appendPaginationParams(params, {
+      page: filters?.page,
+      pageSize: filters?.pageSize,
+      search: filters?.search,
+    });
+    if (filters?.dateFrom) params.set("date_from", filters.dateFrom);
+    if (filters?.dateTo) params.set("date_to", filters.dateTo);
+
+    const data = await this.request<Record<string, unknown>>(
+      `/appointments/revenue-report/${params.toString() ? `?${params.toString()}` : ""}`,
+    );
+
+    const results = Array.isArray(data.results)
+      ? data.results.map((item) =>
+          normalizeAdminRevenueRow((item as Record<string, unknown>) || {}),
+        )
+      : [];
+    const summary = (data.summary as Record<string, unknown>) || {};
+    const therapistTotals = Array.isArray(data.therapist_totals)
+      ? data.therapist_totals.map((item) =>
+          normalizeAdminRevenueTherapistTotal((item as Record<string, unknown>) || {}),
+        )
+      : [];
+
+    return {
+      count: Number(data.count || 0),
+      next: data.next ? String(data.next) : null,
+      previous: data.previous ? String(data.previous) : null,
+      results,
+      summary: {
+        completedSessions: Number(summary.completed_sessions || 0),
+        grossRevenue: Number(summary.gross_revenue || 0),
+        therapistRevenue: Number(summary.therapist_revenue || 0),
+        platformRevenue: Number(summary.platform_revenue || 0),
+      },
+      therapistTotals,
+    };
   }
 
   async getConversations(): Promise<Conversation[]> {

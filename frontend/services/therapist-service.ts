@@ -1,5 +1,5 @@
 import { api } from "@/lib/api"
-import type { AvailabilitySlot, Therapist, TherapistClinic, TherapistFilters } from "@/lib/types"
+import type { AvailabilitySlot, PaginatedResponse, Therapist, TherapistClinic, TherapistCommissionRule, TherapistFilters } from "@/lib/types"
 
 export const therapistService = {
   apply(payload: {
@@ -26,6 +26,9 @@ export const therapistService = {
   },
   listForAdmin(filters: TherapistFilters = {}): Promise<Therapist[]> {
     return api.listTherapists(filters, { auth: true })
+  },
+  listForAdminPage(filters: TherapistFilters = {}): Promise<PaginatedResponse<Therapist>> {
+    return api.listTherapistsPage(filters, { auth: true })
   },
   getPublicById(id: string): Promise<Therapist> {
     return api.getTherapist(id)
@@ -55,6 +58,30 @@ export const therapistService = {
   },
   approve(id: string, approvalStatus: "approved" | "rejected"): Promise<Therapist> {
     return api.approveTherapist(id, approvalStatus)
+  },
+  listCommissionRules(): Promise<TherapistCommissionRule[]> {
+    return api.getTherapistCommissionRules()
+  },
+  createCommissionRule(payload: {
+    tierName: string
+    minSessions: number
+    maxSessions?: number | null
+    commissionRate: number
+    isActive: boolean
+  }): Promise<TherapistCommissionRule> {
+    return api.createTherapistCommissionRule(payload)
+  },
+  updateCommissionRule(
+    id: string,
+    payload: Partial<{
+      tierName: string
+      minSessions: number
+      maxSessions: number | null
+      commissionRate: number
+      isActive: boolean
+    }>
+  ): Promise<TherapistCommissionRule> {
+    return api.updateTherapistCommissionRule(id, payload)
   },
   listAvailability(therapistId?: string): Promise<AvailabilitySlot[]> {
     return api.getAvailability(therapistId)

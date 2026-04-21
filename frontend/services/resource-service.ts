@@ -1,12 +1,15 @@
 import { api } from "@/lib/api"
-import type { Resource, ResourceCategory } from "@/lib/types"
+import type { PaginatedResponse, Resource, ResourceCategory } from "@/lib/types"
 
 export const resourceService = {
   list(params?: { category?: string; search?: string }): Promise<Resource[]> {
     return api.getResources(params)
   },
-  listAdmin(params?: { category?: string; search?: string }): Promise<Resource[]> {
+  listAdmin(params?: { category?: string; search?: string; page?: number; pageSize?: number }): Promise<Resource[]> {
     return api.listResources(params, { auth: true })
+  },
+  listAdminPage(params?: { category?: string; search?: string; page?: number; pageSize?: number }): Promise<PaginatedResponse<Resource>> {
+    return api.listResourcesPage(params, { auth: true })
   },
   getById(id: string): Promise<Resource> {
     return api.getResource(id)
@@ -16,6 +19,9 @@ export const resourceService = {
   },
   listCategories(): Promise<ResourceCategory[]> {
     return api.getCategories()
+  },
+  listCategoriesPage(params?: { search?: string; page?: number; pageSize?: number }): Promise<PaginatedResponse<ResourceCategory>> {
+    return api.getCategoriesPage(params)
   },
   createCategory(payload: { name: string; description?: string }): Promise<ResourceCategory> {
     return api.createCategory(payload)

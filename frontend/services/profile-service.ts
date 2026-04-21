@@ -1,5 +1,5 @@
 import { api } from "@/lib/api"
-import type { Profile } from "@/lib/types"
+import type { PatientProfile, Profile } from "@/lib/types"
 
 export const profileService = {
   getMyProfile(): Promise<Profile> {
@@ -7,5 +7,8 @@ export const profileService = {
   },
   updateMyProfile(payload: Partial<Profile>): Promise<Profile> {
     return api.updateProfile(payload)
+  },
+  listAssignedPatients(): Promise<PatientProfile[]> {
+    return api.getAssignedPatientProfiles()
   },
 }

@@ -1,9 +1,22 @@
 import { api } from "@/lib/api";
-import type { Appointment } from "@/lib/types";
+import type { Appointment, PaginatedResponse } from "@/lib/types";
 
 export const appointmentService = {
-  list(filters?: { date?: string }): Promise<Appointment[]> {
+  list(filters?: {
+    date?: string;
+    pageSize?: number;
+    allPages?: boolean;
+  }): Promise<Appointment[]> {
     return api.getAppointments(filters);
+  },
+  listPage(filters?: {
+    date?: string;
+    status?: string;
+    page?: number;
+    pageSize?: number;
+    search?: string;
+  }): Promise<PaginatedResponse<Appointment>> {
+    return api.getAppointmentsPage(filters);
   },
   getById(id: string): Promise<Appointment> {
     return api.getAppointment(id);

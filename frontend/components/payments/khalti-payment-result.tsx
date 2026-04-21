@@ -92,7 +92,6 @@ export function KhaltiPaymentResult() {
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Khalti Payment Result</h1>
-        <p className="text-muted-foreground">Your payment is only treated as successful after backend verification.</p>
       </div>
 
       <Card>
@@ -104,9 +103,6 @@ export function KhaltiPaymentResult() {
             {getStatusIcon(state)}
             <div className="space-y-2">
               <p className={`font-medium ${getKhaltiStatusTone(state)}`}>{message}</p>
-              {state === "success" ? (
-                <p className="text-sm text-muted-foreground">The backend confirmed the payment with Khalti and marked your booked slot as confirmed.</p>
-              ) : null}
               {state === "failed" && !appointment ? (
                 <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
                   <AlertCircle className="mt-0.5 h-4 w-4" />

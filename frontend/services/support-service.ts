@@ -1,9 +1,12 @@
 import { api } from "@/lib/api"
-import type { SupportIssueType, SupportTicket, SupportTicketMessage, SupportTicketStatus } from "@/lib/types"
+import type { PaginatedResponse, SupportIssueType, SupportTicket, SupportTicketMessage, SupportTicketStatus } from "@/lib/types"
 
 export const supportService = {
-  list(filters?: { status?: string; issueType?: string }): Promise<SupportTicket[]> {
+  list(filters?: { status?: string; issueType?: string; page?: number; pageSize?: number; search?: string }): Promise<SupportTicket[]> {
     return api.getSupportTickets(filters)
+  },
+  listPage(filters?: { status?: string; issueType?: string; page?: number; pageSize?: number; search?: string }): Promise<PaginatedResponse<SupportTicket>> {
+    return api.getSupportTicketsPage(filters)
   },
   get(id: string): Promise<SupportTicket> {
     return api.getSupportTicket(id)

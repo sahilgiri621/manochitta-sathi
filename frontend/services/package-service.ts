@@ -1,9 +1,12 @@
 import { api } from "@/lib/api"
-import type { PackagePlan, PackagePlanInput, PackagePurchaseInitiation, PackageVerificationResult, UserSubscription } from "@/lib/types"
+import type { PackagePlan, PackagePlanInput, PackagePurchaseInitiation, PackageVerificationResult, PaginatedResponse, UserSubscription } from "@/lib/types"
 
 export const packageService = {
-  listPlans(options?: { auth?: boolean }): Promise<PackagePlan[]> {
+  listPlans(options?: { auth?: boolean; page?: number; pageSize?: number; search?: string }): Promise<PackagePlan[]> {
     return api.getPackagePlans(options)
+  },
+  listPlansPage(options?: { auth?: boolean; page?: number; pageSize?: number; search?: string }): Promise<PaginatedResponse<PackagePlan>> {
+    return api.getPackagePlansPage(options, options)
   },
   listMySubscriptions(): Promise<UserSubscription[]> {
     return api.getMySubscriptions()

@@ -1,11 +1,14 @@
 import { api } from "@/lib/api"
 import { packageService } from "@/services/package-service"
 import { supportService } from "@/services/support-service"
-import type { PackagePlan, PackagePlanInput, SupportTicket, SupportTicketMessage, SupportTicketStatus, User } from "@/lib/types"
+import type { AdminRevenueReport, PackagePlan, PackagePlanInput, PaginatedResponse, SupportTicket, SupportTicketMessage, SupportTicketStatus, User } from "@/lib/types"
 
 export const adminService = {
-  listUsers(filters?: { role?: string; isActive?: boolean; date?: string }): Promise<User[]> {
+  listUsers(filters?: { role?: string; isActive?: boolean; date?: string; page?: number; pageSize?: number; search?: string }): Promise<User[]> {
     return api.getAdminUsers(filters)
+  },
+  listUsersPage(filters?: { role?: string; isActive?: boolean; date?: string; page?: number; pageSize?: number; search?: string }): Promise<PaginatedResponse<User>> {
+    return api.getAdminUsersPage(filters)
   },
   getUser(id: string): Promise<User> {
     return api.getAdminUser(id)
@@ -19,8 +22,14 @@ export const adminService = {
   deactivateUser(id: string): Promise<User> {
     return api.deactivateAdminUser(id)
   },
-  listPackages(): Promise<PackagePlan[]> {
-    return packageService.listPlans({ auth: true })
+  getRevenueReport(filters?: { search?: string; dateFrom?: string; dateTo?: string; page?: number; pageSize?: number }): Promise<AdminRevenueReport> {
+    return api.getAdminRevenueReport(filters)
+  },
+  listPackages(filters?: { page?: number; pageSize?: number; search?: string }): Promise<PackagePlan[]> {
+    return packageService.listPlans({ auth: true, ...filters })
+  },
+  listPackagesPage(filters?: { page?: number; pageSize?: number; search?: string }): Promise<PaginatedResponse<PackagePlan>> {
+    return packageService.listPlansPage({ auth: true, ...filters })
   },
   createPackage(payload: PackagePlanInput): Promise<PackagePlan> {
     return packageService.createPlan(payload)
@@ -31,8 +40,11 @@ export const adminService = {
   deletePackage(id: string): Promise<void> {
     return packageService.deletePlan(id)
   },
-  listSupportTickets(filters?: { status?: string; issueType?: string }): Promise<SupportTicket[]> {
+  listSupportTickets(filters?: { status?: string; issueType?: string; page?: number; pageSize?: number; search?: string }): Promise<SupportTicket[]> {
     return supportService.list(filters)
+  },
+  listSupportTicketsPage(filters?: { status?: string; issueType?: string; page?: number; pageSize?: number; search?: string }): Promise<PaginatedResponse<SupportTicket>> {
+    return supportService.listPage(filters)
   },
   getSupportTicket(id: string): Promise<SupportTicket> {
     return supportService.get(id)

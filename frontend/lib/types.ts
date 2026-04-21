@@ -73,11 +73,30 @@ export interface Profile {
   updatedAt: string;
 }
 
+export interface PatientProfile {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  age: number | null;
+  gender: string;
+  wellbeingGoals: string;
+  bio: string;
+  address: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+  appointmentCount: number;
+  lastAppointmentAt: string;
+}
+
 export interface TherapistFilters {
   search?: string;
   specialization?: string;
   language?: string;
   date?: string;
+  page?: number;
+  pageSize?: number;
+  approvalStatus?: string;
   priceRange?: { min: number; max: number };
   sessionTypes?: SessionType[];
   experience?: string;
@@ -97,6 +116,12 @@ export interface Therapist {
   languages: string[];
   sessionTypes: SessionType[];
   pricePerSession: number;
+  completedSessions: number;
+  commissionRate: number;
+  commissionTier: string;
+  totalEarnings: number;
+  nextTierName?: string;
+  nextTierMinSessions?: number | null;
   originalPrice?: number;
   rating: number;
   reviewCount: number;
@@ -111,6 +136,17 @@ export interface Therapist {
   acceptsCouples?: boolean;
   availableSlots?: AvailabilitySlot[];
   clinic?: TherapistClinic | null;
+}
+
+export interface TherapistCommissionRule {
+  id: string;
+  tierName: string;
+  minSessions: number;
+  maxSessions: number | null;
+  commissionRate: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface TherapistClinic {
@@ -235,6 +271,11 @@ export interface Appointment {
   externalCalendarEventId: string;
   meetingStatus: string;
   meetingCreatedAt: string;
+  sessionPrice?: number | null;
+  commissionRateUsed?: number | null;
+  platformCommission?: number | null;
+  therapistEarning?: number | null;
+  tierUsed?: string | null;
   notes: string;
   cancellationReason: string;
   therapistResponseNote: string;
@@ -244,6 +285,50 @@ export interface Appointment {
   events: AppointmentEvent[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AdminRevenueRow {
+  id: string;
+  therapistId: string;
+  therapistName: string;
+  therapistEmail: string;
+  userName: string;
+  sessionType: SessionType;
+  scheduledStart: string;
+  paymentVerifiedAt: string;
+  sessionPrice: number;
+  platformCommission: number;
+  therapistEarning: number;
+  commissionRateUsed: number | null;
+  tierUsed: string;
+  paymentProvider: string;
+  paymentTransactionId: string;
+}
+
+export interface AdminRevenueTherapistTotal {
+  therapistId: string;
+  therapistName: string;
+  therapistEmail: string;
+  completedSessions: number;
+  grossRevenue: number;
+  therapistRevenue: number;
+  platformRevenue: number;
+}
+
+export interface AdminRevenueSummary {
+  completedSessions: number;
+  grossRevenue: number;
+  therapistRevenue: number;
+  platformRevenue: number;
+}
+
+export interface AdminRevenueReport {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: AdminRevenueRow[];
+  summary: AdminRevenueSummary;
+  therapistTotals: AdminRevenueTherapistTotal[];
 }
 
 export interface KhaltiInitiation {
@@ -446,6 +531,12 @@ export interface PaginatedResponse<T> {
   previous: string | null;
   results: T[];
 }
+
+export type PaginationFilters = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+};
 
 export interface AIChatReply {
   reply: string;
