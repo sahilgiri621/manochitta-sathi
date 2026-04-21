@@ -7,23 +7,30 @@ import { Button } from "@/components/ui/button"
 import { Calendar, Bell, Heart, ArrowRight } from "lucide-react"
 import { useAuth } from "@/components/providers/auth-provider"
 import { getMoodMeta } from "@/lib/mood"
-import { appointmentService, moodService, notificationService } from "@/services"
-import type { Appointment, MoodEntry, Notification } from "@/lib/types"
+import { appointmentService, moodService, notificationService, packageService } from "@/services"
+import type { Appointment, MoodEntry, Notification, UserSubscription } from "@/lib/types"
 
 export default function DashboardPage() {
   const { user } = useAuth()
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [moodEntries, setMoodEntries] = useState<MoodEntry[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const [subscriptions, setSubscriptions] = useState<UserSubscription[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    Promise.all([appointmentService.list(), moodService.list(), notificationService.list()])
-      .then(([appointmentData, moodData, notificationData]) => {
+    Promise.all([
+      appointmentService.list(),
+      moodService.list(),
+      notificationService.list(),
+      packageService.listMySubscriptions(),
+    ])
+      .then(([appointmentData, moodData, notificationData, subscriptionData]) => {
         setAppointments(appointmentData)
         setMoodEntries(moodData)
         setNotifications(notificationData)
+        setSubscriptions(subscriptionData)
         setError(null)
       })
       .catch((err) => {
@@ -56,6 +63,40 @@ export default function DashboardPage() {
   }, [moodEntries])
 
   const unreadNotifications = notifications.filter((item) => !item.isRead).length
+
+  const packageAppointments = useMemo(
+    () => appointments.filter((appointment) => appointment.bookingPaymentType === "package" && appointment.subscriptionId),
+    [appointments]
+  )
+
+  const packageSummaries = useMemo(
+    () =>
+      subscriptions
+        .filter((subscription) => subscription.plan)
+        .map((subscription) => {
+          const relatedAppointments = packageAppointments.filter(
+            (appointment) => appointment.subscriptionId === subscription.id
+          )
+          const therapistUsage = Array.from(
+            relatedAppointments.reduce((map, appointment) => {
+              const current = map.get(appointment.therapistName) || 0
+              map.set(appointment.therapistName, current + 1)
+              return map
+            }, new Map<string, number>())
+          )
+
+          return {
+            id: subscription.id,
+            planName: subscription.plan.name,
+            remainingCredits: subscription.remainingCredits,
+            totalCredits: subscription.totalCredits,
+            usedCredits: Math.max(subscription.totalCredits - subscription.remainingCredits, 0),
+            status: subscription.status,
+            therapistUsage,
+          }
+        }),
+    [packageAppointments, subscriptions]
+  )
 
   return (
     <div className="space-y-6">
@@ -116,6 +157,69 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       ) : null}
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Packages</CardTitle>
+          <Link href="/services" className="text-sm text-primary inline-flex items-center">
+            View plans
+            <ArrowRight className="ml-1 h-4 w-4" />
+          </Link>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isLoading ? (
+            <p className="text-muted-foreground">Loading package summary...</p>
+          ) : packageSummaries.length === 0 ? (
+            <div className="space-y-3">
+              <p className="text-muted-foreground">You do not have any packages yet.</p>
+              <Button asChild variant="outline">
+                <Link href="/services#plans-and-pricing">Browse packages</Link>
+              </Button>
+            </div>
+          ) : (
+            packageSummaries.map((subscription) => (
+              <div key={subscription.id} className="rounded-lg border border-border p-4">
+                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <p className="font-medium">{subscription.planName}</p>
+                    <p className="text-sm text-muted-foreground capitalize">
+                      Status: {subscription.status.replaceAll("_", " ")}
+                    </p>
+                  </div>
+                  <div className="text-sm text-muted-foreground md:text-right">
+                    <p>Left: {subscription.remainingCredits}</p>
+                    <p>Used: {subscription.usedCredits}</p>
+                  </div>
+                </div>
+
+                {subscription.usedCredits > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-sm font-medium">Used to book</p>
+                    {subscription.therapistUsage.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {subscription.therapistUsage.map(([therapistName, count]) => (
+                          <span
+                            key={`${subscription.id}-${therapistName}`}
+                            className="rounded-md border border-border px-3 py-1 text-sm text-muted-foreground"
+                          >
+                            {therapistName} ({count})
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Package credits have been used, but therapist booking details are not available yet.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-muted-foreground">No package sessions used yet.</p>
+                )}
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>

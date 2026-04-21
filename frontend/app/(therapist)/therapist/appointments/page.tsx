@@ -142,9 +142,9 @@ export default function TherapistAppointmentsPage() {
     }
   };
 
-  const openAttendanceForm = (appointmentId: string) => {
+  const openAttendanceForm = (appointmentId: string, attended = true) => {
     setActiveAttendanceAppointmentId(appointmentId);
-    setAttendanceForm({ attended: true, note: "" });
+    setAttendanceForm({ attended, note: "" });
   };
 
   const handleConfirmAttendance = async (appointment: Appointment) => {
@@ -155,7 +155,11 @@ export default function TherapistAppointmentsPage() {
         attendanceForm.attended,
         attendanceForm.note,
       );
-      toast.success("Attendance confirmed.");
+      toast.success(
+        attendanceForm.attended
+          ? "Attendance confirmed."
+          : "Session marked missed.",
+      );
       setActiveAttendanceAppointmentId(null);
       setAttendanceForm({ attended: true, note: "" });
       await loadAppointments();
@@ -244,7 +248,7 @@ export default function TherapistAppointmentsPage() {
                   {appointment.requiresAttendanceConfirmation ? (
                     <Button
                       variant="outline"
-                      onClick={() => openAttendanceForm(appointment.id)}
+                      onClick={() => openAttendanceForm(appointment.id, false)}
                     >
                       Mark Missed
                     </Button>
@@ -411,40 +415,16 @@ export default function TherapistAppointmentsPage() {
   const renderAttendanceForm = (appointment: Appointment) => (
     <div className="mt-4 space-y-4 rounded-lg border border-border bg-muted/30 p-4">
       <p className="text-sm font-medium">
-        Did this session happen?
+        Why was this session missed?
       </p>
-
-      <div className="flex items-center space-x-2">
-        <input
-          type="radio"
-          id={`attended-${appointment.id}`}
-          name={`attendance-${appointment.id}`}
-          checked={attendanceForm.attended}
-          onChange={() =>
-            setAttendanceForm((current) => ({ ...current, attended: true }))
-          }
-        />
-        <Label htmlFor={`attended-${appointment.id}`}>Patient attended</Label>
-      </div>
-
-      <div className="flex items-center space-x-2">
-        <input
-          type="radio"
-          id={`missed-${appointment.id}`}
-          name={`attendance-${appointment.id}`}
-          checked={!attendanceForm.attended}
-          onChange={() =>
-            setAttendanceForm((current) => ({ ...current, attended: false }))
-          }
-        />
-        <Label htmlFor={`missed-${appointment.id}`}>
-          Patient did not attend
-        </Label>
-      </div>
+      <p className="text-sm text-muted-foreground">
+        Add the therapist reason for the missed session. Missed sessions do not
+        generate earnings unless the appointment is later completed.
+      </p>
 
       <div>
         <Label htmlFor={`attendance-note-${appointment.id}`}>
-          Note (optional)
+          Therapist reason
         </Label>
         <Textarea
           id={`attendance-note-${appointment.id}`}
@@ -455,16 +435,16 @@ export default function TherapistAppointmentsPage() {
               note: event.target.value,
             }))
           }
-          placeholder="Add any notes about attendance..."
+          placeholder="Explain why the session was missed..."
         />
       </div>
 
       <div className="flex gap-2">
         <Button
           onClick={() => handleConfirmAttendance(appointment)}
-          disabled={isSavingAttendance}
+          disabled={isSavingAttendance || !attendanceForm.note.trim()}
         >
-          {isSavingAttendance ? "Saving..." : "Confirm Attendance"}
+          {isSavingAttendance ? "Saving..." : "Mark Session Missed"}
         </Button>
         <Button
           variant="outline"

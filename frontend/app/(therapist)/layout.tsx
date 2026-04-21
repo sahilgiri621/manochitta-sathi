@@ -21,6 +21,7 @@ import {
   MessageSquare,
   Clock,
   BookOpen,
+  Wallet,
   FileText,
   MapPin,
   Menu,
@@ -30,6 +31,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/components/providers/auth-provider"
+import { NotificationBell } from "@/components/notifications/notification-bell"
 
 const sidebarLinks = [
   { href: "/therapist", label: "Dashboard", icon: LayoutDashboard },
@@ -38,7 +40,9 @@ const sidebarLinks = [
   { href: "/therapist/clinic", label: "Clinic", icon: MapPin },
   { href: "/therapist/messages", label: "Messages", icon: MessageSquare },
   { href: "/therapist/availability", label: "Availability", icon: Clock },
+  { href: "/therapist/earnings", label: "Earnings", icon: Wallet },
   { href: "/therapist/resources", label: "Resources", icon: BookOpen },
+  { href: "/therapist/notifications", label: "Notifications", icon: Bell },
   { href: "/therapist/profile", label: "Profile", icon: User },
 ]
 
@@ -125,9 +129,7 @@ export default function TherapistLayout({
           </div>
 
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" aria-label="Portal alerts">
-              <Bell className="h-5 w-5" />
-            </Button>
+            <NotificationBell role={user.role} />
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

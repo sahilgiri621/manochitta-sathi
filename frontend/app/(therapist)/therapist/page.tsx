@@ -36,6 +36,10 @@ export default function TherapistDashboardPage() {
     [appointments]
   )
 
+  const nextTierText = profile?.nextTierMinSessions
+    ? `Next tier at ${profile.nextTierMinSessions} sessions`
+    : "Top tier reached"
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
@@ -78,10 +82,13 @@ export default function TherapistDashboardPage() {
         </Card>
       ) : null}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card><CardContent className="p-6"><p className="text-sm text-muted-foreground">Upcoming sessions</p><p className="text-3xl font-bold mt-2">{upcomingCount}</p></CardContent></Card>
+        <Card><CardContent className="p-6"><p className="text-sm text-muted-foreground">Completed sessions</p><p className="text-3xl font-bold mt-2">{profile?.completedSessions || 0}</p></CardContent></Card>
+        <Card><CardContent className="p-6"><p className="text-sm text-muted-foreground">Commission tier</p><p className="text-3xl font-bold mt-2">{profile?.commissionTier || "Starter"}</p><p className="text-xs text-muted-foreground mt-2">{nextTierText}</p></CardContent></Card>
+        <Card><CardContent className="p-6"><p className="text-sm text-muted-foreground">Total earnings</p><p className="text-3xl font-bold mt-2">NPR {profile?.totalEarnings?.toLocaleString() || "0"}</p></CardContent></Card>
         <Card><CardContent className="p-6"><p className="text-sm text-muted-foreground">Languages</p><p className="text-3xl font-bold mt-2">{profile?.languages.length || 0}</p></CardContent></Card>
-        <Card><CardContent className="p-6"><p className="text-sm text-muted-foreground">Fee</p><p className="text-3xl font-bold mt-2">NPR {profile?.pricePerSession?.toLocaleString() || "0"}</p></CardContent></Card>
+        <Card><CardContent className="p-6"><p className="text-sm text-muted-foreground">Commission rate</p><p className="text-3xl font-bold mt-2">{(((profile?.commissionRate || 0) * 100)).toFixed(0)}%</p></CardContent></Card>
       </div>
 
       {error ? (

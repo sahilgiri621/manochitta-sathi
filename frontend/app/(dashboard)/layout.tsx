@@ -7,6 +7,7 @@ import { Logo } from "@/components/logo"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/components/providers/auth-provider"
+import { NotificationBell } from "@/components/notifications/notification-bell"
 import {
   LayoutDashboard,
   Calendar,
@@ -67,6 +68,8 @@ export default function DashboardLayout({
           <Menu className="h-6 w-6" />
         </button>
         <Logo />
+        <div className="flex items-center gap-2">
+        <NotificationBell role={user.role} />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
@@ -81,6 +84,7 @@ export default function DashboardLayout({
             <DropdownMenuItem onClick={() => logout()}>Log out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </header>
 
       {/* Mobile Sidebar Overlay */}
@@ -149,13 +153,7 @@ export default function DashboardLayout({
             </h1>
           </div>
           <div className="flex items-center gap-4">
-            <Link
-              href="/dashboard/notifications"
-              className="p-2 hover:bg-muted rounded-lg"
-              aria-label="Notifications"
-            >
-              <Bell className="h-5 w-5 text-muted-foreground" />
-            </Link>
+            <NotificationBell role={user.role} />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-2 p-2 hover:bg-muted rounded-lg">

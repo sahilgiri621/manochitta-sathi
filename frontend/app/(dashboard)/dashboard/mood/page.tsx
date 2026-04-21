@@ -71,22 +71,22 @@ export default function MoodTrackerPage() {
             <CardTitle>Log today&apos;s mood</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
               {MOOD_OPTIONS.map((option) => (
                 <Button
                   key={option.value}
                   type="button"
                   variant={selectedMood === option.value ? "default" : "outline"}
-                  className="h-auto justify-start px-4 py-3 text-left"
+                  className="h-full min-w-0 shrink justify-start whitespace-normal px-3 py-3 text-left leading-tight"
                   onClick={() => setSelectedMood(option.value)}
                 >
-                  <span className="mr-2 text-lg" aria-hidden="true">{option.emoji}</span>
-                  <span>{option.label}</span>
+                  <span className="shrink-0 text-lg" aria-hidden="true">{option.emoji}</span>
+                  <span className="min-w-0 break-words">{option.label}</span>
                 </Button>
               ))}
             </div>
 
-              <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="stress-level">Stress level</Label>
                 <Input id="stress-level" type="number" min={1} max={5} value={stressLevel} onChange={(e) => setStressLevel(Number(e.target.value) || 1)} />

@@ -317,7 +317,6 @@ export default function TherapistAvailabilityPage() {
       <Card className="overflow-hidden">
         <CardHeader className="border-b bg-muted/30">
           <CardTitle>Current Slots</CardTitle>
-          <CardDescription>Showing 20 slots per page in a side-by-side grid for faster review and editing.</CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
           {isLoading ? (

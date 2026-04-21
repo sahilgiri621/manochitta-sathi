@@ -24,6 +24,13 @@ const EMPTY_PROFILE: Profile = {
   updatedAt: "",
 }
 
+const GENDER_OPTIONS = [
+  { value: "male", label: "Male" },
+  { value: "female", label: "Female" },
+  { value: "other", label: "Other" },
+  { value: "prefer_not_to_say", label: "Prefer not to say" },
+]
+
 export default function ProfilePage() {
   const { user } = useAuth()
   const [profile, setProfile] = useState<Profile>(EMPTY_PROFILE)
@@ -118,12 +125,21 @@ export default function ProfilePage() {
             />
           </div>
           <div>
-            <Label>Gender</Label>
-            <Input
+            <Label htmlFor="profile-gender">Gender</Label>
+            <select
+              id="profile-gender"
+              className="border-input bg-background flex h-9 w-full min-w-0 rounded-md border px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] md:text-sm"
               value={profile.gender}
               onChange={(event) => setProfile((current) => ({ ...current, gender: event.target.value }))}
               disabled={!isEditing || isLoading}
-            />
+            >
+              <option value="">Select gender</option>
+              {GENDER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="md:col-span-2">
             <Label>Address</Label>
