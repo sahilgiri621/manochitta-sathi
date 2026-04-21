@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -38,7 +39,8 @@ class AppointmentFlowTests(APITestCase):
         )
         self.therapist_profile = TherapistProfile.objects.get(user=self.therapist_user)
         self.therapist_profile.approval_status = TherapistProfile.STATUS_APPROVED
-        self.therapist_profile.save(update_fields=["approval_status"])
+        self.therapist_profile.consultation_fee = 2000
+        self.therapist_profile.save(update_fields=["approval_status", "consultation_fee"])
         self.slot = TherapistAvailability.objects.create(
             therapist=self.therapist_profile,
             start_time=timezone.now() + timedelta(days=1),
@@ -116,6 +118,15 @@ class AppointmentFlowTests(APITestCase):
             format="json",
         )
         self.assertEqual(complete_response.status_code, status.HTTP_200_OK)
+        appointment.refresh_from_db()
+        self.therapist_profile.refresh_from_db()
+        self.assertEqual(appointment.session_price, Decimal("2000.00"))
+        self.assertEqual(appointment.commission_rate_used, Decimal("0.1000"))
+        self.assertEqual(appointment.platform_commission, Decimal("200.00"))
+        self.assertEqual(appointment.therapist_earning, Decimal("1800.00"))
+        self.assertEqual(appointment.tier_used, "Starter")
+        self.assertEqual(self.therapist_profile.completed_sessions, 1)
+        self.assertEqual(self.therapist_profile.total_earnings, Decimal("1800.00"))
 
         self.client.credentials()
         self.authenticate(self.user)
@@ -157,6 +168,130 @@ class AppointmentFlowTests(APITestCase):
         self.assertEqual(attendance_response.status_code, status.HTTP_200_OK)
         appointment.refresh_from_db()
         self.assertEqual(appointment.status, Appointment.STATUS_MISSED)
+        self.assertIsNone(appointment.therapist_earning)
+
+    def test_therapist_must_provide_reason_when_marking_session_missed(self):
+        appointment = self.user.appointments.create(
+            therapist=self.therapist_profile,
+            availability_slot=self.slot,
+            session_type="video",
+            scheduled_start=timezone.now() - timedelta(hours=2),
+            scheduled_end=timezone.now() - timedelta(hours=1),
+            status=Appointment.STATUS_CONFIRMED,
+            payment_status=Appointment.PAYMENT_PAID,
+        )
+
+        self.authenticate(self.therapist_user)
+        response = self.client.post(
+            f"/api/v1/appointments/{appointment.id}/attendance/",
+            {"attended": False, "note": ""},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        appointment.refresh_from_db()
+        self.therapist_profile.refresh_from_db()
+        self.assertEqual(appointment.status, Appointment.STATUS_CONFIRMED)
+        self.assertIsNone(appointment.therapist_earning)
+        self.assertEqual(self.therapist_profile.total_earnings, Decimal("0.00"))
+
+    def test_admin_can_view_revenue_report_with_therapist_search_and_date_filters(self):
+        second_therapist_user = User.objects.create_user(
+            email="second-therapist@example.com",
+            password="SecondTherapist123",
+            first_name="Second",
+            last_name="Therapist",
+            role="therapist",
+            is_email_verified=True,
+        )
+        second_therapist = TherapistProfile.objects.get(user=second_therapist_user)
+        second_therapist.approval_status = TherapistProfile.STATUS_APPROVED
+        second_therapist.consultation_fee = 1500
+        second_therapist.save(update_fields=["approval_status", "consultation_fee"])
+
+        first_appointment = self.user.appointments.create(
+            therapist=self.therapist_profile,
+            session_type="video",
+            scheduled_start=timezone.now() - timedelta(days=2),
+            scheduled_end=timezone.now() - timedelta(days=2, minutes=-50),
+            status=Appointment.STATUS_COMPLETED,
+            payment_status=Appointment.PAYMENT_PAID,
+            session_price=Decimal("2000.00"),
+            platform_commission=Decimal("200.00"),
+            therapist_earning=Decimal("1800.00"),
+            commission_rate_used=Decimal("0.1000"),
+            tier_used="Starter",
+        )
+        self.user.appointments.create(
+            therapist=second_therapist,
+            session_type="audio",
+            scheduled_start=timezone.now() - timedelta(days=1),
+            scheduled_end=timezone.now() - timedelta(days=1, minutes=-50),
+            status=Appointment.STATUS_COMPLETED,
+            payment_status=Appointment.PAYMENT_PAID,
+            session_price=Decimal("1500.00"),
+            platform_commission=Decimal("150.00"),
+            therapist_earning=Decimal("1350.00"),
+            commission_rate_used=Decimal("0.1000"),
+            tier_used="Starter",
+        )
+
+        self.authenticate(self.admin)
+        selected_date = timezone.localtime(first_appointment.scheduled_start).date().isoformat()
+        response = self.client.get(
+            f"/api/v1/appointments/revenue-report/?search=Thera&date_from={selected_date}&date_to={selected_date}"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = response.data["data"]
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["summary"]["completed_sessions"], 1)
+        self.assertEqual(str(payload["summary"]["gross_revenue"]), "2000.00")
+        self.assertEqual(str(payload["summary"]["therapist_revenue"]), "1800.00")
+        self.assertEqual(str(payload["summary"]["platform_revenue"]), "200.00")
+        self.assertEqual(payload["results"][0]["therapist_name"], self.therapist_user.full_name)
+
+    def test_completed_tenth_session_uses_growth_commission_tier(self):
+        for index in range(9):
+            self.user.appointments.create(
+                therapist=self.therapist_profile,
+                session_type="video",
+                scheduled_start=timezone.now() - timedelta(days=index + 2),
+                scheduled_end=timezone.now() - timedelta(days=index + 2, minutes=-50),
+                status=Appointment.STATUS_COMPLETED,
+                payment_status=Appointment.PAYMENT_PAID,
+                session_price=2000,
+                commission_rate_used="0.10",
+                platform_commission=200,
+                therapist_earning=1800,
+                tier_used="Starter",
+            )
+        appointment = self.user.appointments.create(
+            therapist=self.therapist_profile,
+            availability_slot=self.slot,
+            session_type="video",
+            scheduled_start=timezone.now() - timedelta(hours=2),
+            scheduled_end=timezone.now() - timedelta(hours=1),
+            status=Appointment.STATUS_CONFIRMED,
+            payment_status=Appointment.PAYMENT_PAID,
+        )
+
+        self.authenticate(self.user)
+        response = self.client.post(
+            f"/api/v1/appointments/{appointment.id}/attendance/",
+            {"attended": True},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        appointment.refresh_from_db()
+        self.therapist_profile.refresh_from_db()
+        self.assertEqual(appointment.tier_used, "Growth")
+        self.assertEqual(appointment.commission_rate_used, Decimal("0.1500"))
+        self.assertEqual(appointment.platform_commission, Decimal("300.00"))
+        self.assertEqual(appointment.therapist_earning, Decimal("1700.00"))
+        self.assertEqual(self.therapist_profile.completed_sessions, 10)
+        self.assertEqual(self.therapist_profile.commission_tier, "Growth")
 
     def test_booking_creates_pending_payment_intent_and_keeps_slot_open(self):
         self.authenticate(self.user)

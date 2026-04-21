@@ -1,15 +1,18 @@
+from decimal import Decimal
+
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Count, Q, Sum
 from django.utils import timezone
 from rest_framework import permissions
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from apps.common.date_filters import filter_queryset_by_date
-from apps.common.permissions import IsTherapistRole
+from apps.common.permissions import IsAdminRole, IsTherapistRole
 from apps.common.responses import api_response
 from apps.common.viewsets import WrappedModelViewSet
 from apps.patient_records.models import PatientRecord
+from apps.therapists.commission import finalize_completed_appointment_commission
 from apps.therapists.models import TherapistAvailability
 
 from .models import Appointment
@@ -31,11 +34,16 @@ from .services import (
 class AppointmentViewSet(WrappedModelViewSet):
     serializer_class = AppointmentSerializer
     permission_classes = [permissions.IsAuthenticated]
+    search_fields = ("notes", "status", "user__first_name", "user__last_name", "therapist__user__first_name", "therapist__user__last_name")
     ordering_fields = ("scheduled_start", "created_at")
 
     def get_queryset(self):
         queryset = Appointment.objects.prefetch_related("user", "therapist__user", "availability_slot", "events__actor")
         queryset = filter_queryset_by_date(queryset, "scheduled_start", self.request.query_params.get("date"))
+        status_param = self.request.query_params.get("status")
+        if status_param:
+            statuses = [value.strip() for value in status_param.split(",") if value.strip()]
+            queryset = queryset.filter(status__in=statuses)
         user = self.request.user
         if user.role == "admin":
             return queryset
@@ -178,11 +186,14 @@ class AppointmentViewSet(WrappedModelViewSet):
         serializer.is_valid(raise_exception=True)
         attended = serializer.validated_data["attended"]
         note = serializer.validated_data.get("note", "")
+        if request.user.role == "therapist" and not attended and not note.strip():
+            raise ValidationError("Therapists must provide a reason when marking a session as missed.")
         if attended:
             if appointment.payment_status != Appointment.PAYMENT_PAID and appointment.booking_payment_type != Appointment.BOOKING_PAYMENT_TYPE_PACKAGE:
                 raise ValidationError("Only paid appointments can be marked as attended.")
             appointment.status = Appointment.STATUS_COMPLETED
             appointment.save(update_fields=["status", "updated_at"])
+            appointment = finalize_completed_appointment_commission(appointment)
             create_appointment_event(appointment, request.user, appointment.status, note or "Attendance confirmed.")
             notify_appointment_users(appointment, "Appointment completed", "Your session was marked as completed.")
             return api_response(data=AppointmentSerializer(appointment).data, message="Appointment marked as completed.")
@@ -191,6 +202,123 @@ class AppointmentViewSet(WrappedModelViewSet):
         create_appointment_event(appointment, request.user, appointment.status, note or "Attendance confirmed as missed.")
         notify_appointment_users(appointment, "Appointment missed", "Your session was marked as missed.")
         return api_response(data=AppointmentSerializer(appointment).data, message="Appointment marked as missed.")
+
+    @action(detail=False, methods=["get"], permission_classes=[IsAdminRole], url_path="revenue-report")
+    def revenue_report(self, request):
+        def format_amount(value):
+            if value is None:
+                return Decimal("0.00")
+            return value.quantize(Decimal("0.01"))
+
+        queryset = (
+            Appointment.objects.prefetch_related("user", "therapist__user")
+            .filter(
+                status=Appointment.STATUS_COMPLETED,
+                therapist_earning__isnull=False,
+                platform_commission__isnull=False,
+            )
+            .order_by("-scheduled_start", "-pk")
+        )
+
+        search = request.query_params.get("search", "").strip()
+        if search:
+            for term in search.split():
+                queryset = queryset.filter(
+                    Q(therapist__user__first_name__icontains=term)
+                    | Q(therapist__user__last_name__icontains=term)
+                    | Q(therapist__user__email__icontains=term)
+                )
+
+        date_from = request.query_params.get("date_from")
+        if date_from:
+            queryset = queryset.filter(scheduled_start__date__gte=date_from)
+
+        date_to = request.query_params.get("date_to")
+        if date_to:
+            queryset = queryset.filter(scheduled_start__date__lte=date_to)
+
+        totals = queryset.aggregate(
+            gross_revenue=Sum("session_price"),
+            therapist_revenue=Sum("therapist_earning"),
+            platform_revenue=Sum("platform_commission"),
+        )
+        therapist_totals = []
+        grouped_rows = (
+            queryset.values(
+                "therapist_id",
+                "therapist__user__first_name",
+                "therapist__user__last_name",
+                "therapist__user__email",
+            )
+            .annotate(
+                completed_sessions=Count("id"),
+                gross_revenue=Sum("session_price"),
+                therapist_revenue=Sum("therapist_earning"),
+                platform_revenue=Sum("platform_commission"),
+            )
+            .order_by("-therapist_revenue", "therapist_id")
+        )
+        for row in grouped_rows:
+            therapist_name = " ".join(
+                part
+                for part in [row.get("therapist__user__first_name"), row.get("therapist__user__last_name")]
+                if part
+            ).strip()
+            therapist_totals.append(
+                {
+                    "therapist_id": str(row["therapist_id"]),
+                    "therapist_name": therapist_name,
+                    "therapist_email": row.get("therapist__user__email") or "",
+                    "completed_sessions": row.get("completed_sessions") or 0,
+                    "gross_revenue": format_amount(row.get("gross_revenue")),
+                    "therapist_revenue": format_amount(row.get("therapist_revenue")),
+                    "platform_revenue": format_amount(row.get("platform_revenue")),
+                }
+            )
+
+        page = self.paginate_queryset(queryset)
+        items = page if page is not None else queryset
+        results = [
+            {
+                "id": str(appointment.id),
+                "therapist_id": str(appointment.therapist_id),
+                "therapist_name": appointment.therapist.user.full_name,
+                "therapist_email": appointment.therapist.user.email,
+                "user_name": appointment.user.full_name,
+                "session_type": appointment.session_type,
+                "scheduled_start": appointment.scheduled_start,
+                "payment_verified_at": appointment.payment_verified_at,
+                "session_price": appointment.session_price or Decimal("0.00"),
+                "platform_commission": appointment.platform_commission or Decimal("0.00"),
+                "therapist_earning": appointment.therapist_earning or Decimal("0.00"),
+                "commission_rate_used": appointment.commission_rate_used,
+                "tier_used": appointment.tier_used or "",
+                "payment_provider": appointment.payment_provider or "",
+                "payment_transaction_id": appointment.payment_transaction_id or "",
+            }
+            for appointment in items
+        ]
+
+        count = self.paginator.page.paginator.count if page is not None else queryset.count()
+        next_link = self.paginator.get_next_link() if page is not None else None
+        previous_link = self.paginator.get_previous_link() if page is not None else None
+
+        return api_response(
+            data={
+                "count": count,
+                "next": next_link,
+                "previous": previous_link,
+                "results": results,
+                "summary": {
+                    "completed_sessions": queryset.count(),
+                    "gross_revenue": format_amount(totals["gross_revenue"]),
+                    "therapist_revenue": format_amount(totals["therapist_revenue"]),
+                    "platform_revenue": format_amount(totals["platform_revenue"]),
+                },
+                "therapist_totals": therapist_totals,
+            },
+            message="Revenue report retrieved successfully.",
+        )
 
     @action(detail=True, methods=["post"], permission_classes=[IsTherapistRole])
     def complete(self, request, pk=None):
@@ -239,6 +367,7 @@ class AppointmentViewSet(WrappedModelViewSet):
             )
         appointment.status = Appointment.STATUS_COMPLETED
         appointment.save(update_fields=["status", "updated_at"])
+        appointment = finalize_completed_appointment_commission(appointment)
         create_appointment_event(appointment, request.user, appointment.status, "Appointment completed.")
         notify_appointment_users(appointment, "Appointment completed", "Your session has been marked as completed.")
         return api_response(data=AppointmentSerializer(appointment).data, message="Appointment completed.")

@@ -118,6 +118,11 @@ class Appointment(TimeStampedModel):
     external_calendar_event_id = models.CharField(max_length=255, blank=True, null=True)
     meeting_status = models.CharField(max_length=20, choices=MEETING_STATUS_CHOICES, blank=True, null=True)
     meeting_created_at = models.DateTimeField(null=True, blank=True)
+    session_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    commission_rate_used = models.DecimalField(max_digits=5, decimal_places=4, null=True, blank=True)
+    platform_commission = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    therapist_earning = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    tier_used = models.CharField(max_length=100, blank=True, null=True)
 
     ACTIVE_STATUSES = (STATUS_CONFIRMED, STATUS_ACCEPTED, STATUS_RESCHEDULED)
     TERMINAL_STATUSES = (STATUS_CANCELLED, STATUS_REJECTED, STATUS_COMPLETED, STATUS_MISSED)
@@ -151,6 +156,7 @@ class Appointment(TimeStampedModel):
             "meeting_link",
             "external_calendar_event_id",
             "meeting_status",
+            "tier_used",
         ):
             if getattr(self, field_name, None) == "":
                 setattr(self, field_name, None)
