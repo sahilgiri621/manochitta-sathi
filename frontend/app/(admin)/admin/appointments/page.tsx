@@ -1,34 +1,54 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConfirmActionDialog } from "@/components/admin/confirm-action-dialog"
+import { AdminPagination } from "@/components/admin/admin-pagination"
 import { toast } from "sonner"
 import { appointmentService } from "@/services"
 import type { Appointment } from "@/lib/types"
 
+const PAGE_SIZE = 10
 const bookedStatuses = ["pending_payment", "pending", "confirmed", "accepted", "rescheduled"]
 const canceledStatuses = ["cancelled", "rejected"]
 
 type AppointmentGroup = "booked" | "completed" | "missed" | "canceled"
 
+const statusByGroup: Record<AppointmentGroup, string> = {
+  booked: bookedStatuses.join(","),
+  completed: "completed",
+  missed: "missed",
+  canceled: canceledStatuses.join(","),
+}
+
 export default function AdminAppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [totalCount, setTotalCount] = useState(0)
   const [search, setSearch] = useState("")
   const [selectedDate, setSelectedDate] = useState("")
+  const [activeTab, setActiveTab] = useState<AppointmentGroup>("booked")
+  const [page, setPage] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
   const [isUpdating, setIsUpdating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pendingCancel, setPendingCancel] = useState<Appointment | null>(null)
 
-  const loadAppointments = async (date = selectedDate) => {
+  const loadAppointments = async (nextPage = page) => {
     setIsLoading(true)
     try {
-      setAppointments(await appointmentService.list({ date: date || undefined }))
+      const data = await appointmentService.listPage({
+        date: selectedDate || undefined,
+        status: statusByGroup[activeTab],
+        search: search.trim() || undefined,
+        page: nextPage,
+        pageSize: PAGE_SIZE,
+      })
+      setAppointments(data.results)
+      setTotalCount(data.count)
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load appointments.")
@@ -38,29 +58,12 @@ export default function AdminAppointmentsPage() {
   }
 
   useEffect(() => {
-    loadAppointments().catch(() => undefined)
-  }, [selectedDate])
+    setPage(1)
+  }, [search, selectedDate, activeTab])
 
-  const filteredAppointments = useMemo(
-    () =>
-      appointments.filter((appointment) =>
-        [appointment.userName, appointment.therapistName, appointment.notes, appointment.status]
-          .join(" ")
-          .toLowerCase()
-          .includes(search.toLowerCase())
-      ),
-    [appointments, search]
-  )
-
-  const groupedAppointments = useMemo(
-    () => ({
-      booked: filteredAppointments.filter((appointment) => bookedStatuses.includes(appointment.status)),
-      completed: filteredAppointments.filter((appointment) => appointment.status === "completed"),
-      missed: filteredAppointments.filter((appointment) => appointment.status === "missed"),
-      canceled: filteredAppointments.filter((appointment) => canceledStatuses.includes(appointment.status)),
-    }),
-    [filteredAppointments]
-  )
+  useEffect(() => {
+    loadAppointments(page).catch(() => undefined)
+  }, [page, search, selectedDate, activeTab])
 
   const confirmCancel = async () => {
     if (!pendingCancel) return
@@ -69,7 +72,7 @@ export default function AdminAppointmentsPage() {
       await appointmentService.cancel(pendingCancel.id, "Cancelled by admin")
       toast.success("Appointment cancelled.")
       setPendingCancel(null)
-      await loadAppointments()
+      await loadAppointments(page)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Unable to cancel appointment.")
     } finally {
@@ -107,12 +110,22 @@ export default function AdminAppointmentsPage() {
     </div>
   )
 
-  const renderAppointmentList = (group: AppointmentGroup, emptyMessage: string) => {
+  const renderAppointmentList = (emptyMessage: string) => {
     if (isLoading) return <p className="text-muted-foreground">Loading appointments...</p>
     if (error) return <p className="text-destructive">{error}</p>
-    const items = groupedAppointments[group]
-    if (items.length === 0) return <p className="text-muted-foreground">{emptyMessage}</p>
-    return <div className="space-y-3">{items.map(renderAppointmentCard)}</div>
+    if (appointments.length === 0) return <p className="text-muted-foreground">{emptyMessage}</p>
+    return (
+      <div className="space-y-3">
+        {appointments.map(renderAppointmentCard)}
+        <AdminPagination
+          page={page}
+          pageSize={PAGE_SIZE}
+          totalCount={totalCount}
+          isLoading={isLoading}
+          onPageChange={setPage}
+        />
+      </div>
+    )
   }
 
   return (
@@ -140,7 +153,7 @@ export default function AdminAppointmentsPage() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="booked">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AppointmentGroup)}>
         <TabsList>
           <TabsTrigger value="booked">Booked</TabsTrigger>
           <TabsTrigger value="completed">Completed</TabsTrigger>
@@ -154,7 +167,6 @@ export default function AdminAppointmentsPage() {
             </CardHeader>
             <CardContent>
               {renderAppointmentList(
-                "booked",
                 selectedDate ? "No booked appointments were scheduled on the selected day." : "No booked appointments found."
               )}
             </CardContent>
@@ -167,7 +179,6 @@ export default function AdminAppointmentsPage() {
             </CardHeader>
             <CardContent>
               {renderAppointmentList(
-                "completed",
                 selectedDate ? "No completed appointments were scheduled on the selected day." : "No completed appointments found."
               )}
             </CardContent>
@@ -180,7 +191,6 @@ export default function AdminAppointmentsPage() {
             </CardHeader>
             <CardContent>
               {renderAppointmentList(
-                "missed",
                 selectedDate ? "No missed appointments were scheduled on the selected day." : "No missed appointments found."
               )}
             </CardContent>
@@ -193,7 +203,6 @@ export default function AdminAppointmentsPage() {
             </CardHeader>
             <CardContent>
               {renderAppointmentList(
-                "canceled",
                 selectedDate ? "No canceled appointments were scheduled on the selected day." : "No canceled appointments found."
               )}
             </CardContent>

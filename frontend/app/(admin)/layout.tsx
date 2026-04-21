@@ -25,6 +25,7 @@ import {
   MessageSquareQuote,
   LifeBuoy,
   Wallet,
+  TrendingUp,
   Bell,
   Menu,
   LogOut,
@@ -32,6 +33,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/components/providers/auth-provider"
+import { NotificationBell } from "@/components/notifications/notification-bell"
 
 const sidebarLinks = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -41,8 +43,10 @@ const sidebarLinks = [
   { href: "/admin/feedback", label: "Feedback", icon: MessageSquareQuote },
   { href: "/admin/support", label: "Support", icon: LifeBuoy },
   { href: "/admin/packages", label: "Packages", icon: Wallet },
+  { href: "/admin/revenue", label: "Revenue", icon: TrendingUp },
   { href: "/admin/resources", label: "Resources", icon: BookOpen },
   { href: "/admin/categories", label: "Categories", icon: FolderTree },
+  { href: "/admin/notifications", label: "Notifications", icon: Bell },
 ]
 
 function Sidebar({ className }: { className?: string }) {
@@ -51,17 +55,17 @@ function Sidebar({ className }: { className?: string }) {
   const initial = user?.name?.charAt(0)?.toUpperCase() || "A"
 
   return (
-    <div className={cn("flex h-full flex-col bg-[#1a1a2e] text-white", className)}>
-      <div className="p-6 border-b border-white/10">
-        <Link href="/" className="flex flex-col items-start gap-3">
+    <div className={cn("flex h-full min-h-0 flex-col overflow-hidden bg-[#1a1a2e] text-white", className)}>
+      <div className="shrink-0 border-b border-white/10 px-5 py-4">
+        <Link href="/" className="flex flex-col items-start gap-2">
           <Logo className="[&_span]:text-white" size="sm" />
           <span className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">
             Admin Portal
           </span>
         </Link>
       </div>
-      <nav className="flex-1 p-4 overflow-y-auto">
-        <ul className="flex flex-col gap-1">
+      <nav className="min-h-0 flex-1 p-3">
+        <ul className="flex flex-col gap-0.5">
           {sidebarLinks.map((link) => {
             const isActive = pathname === link.href
             return (
@@ -69,13 +73,13 @@ function Sidebar({ className }: { className?: string }) {
                 <Link
                   href={link.href}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors",
+                    "flex items-center gap-3 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
                     isActive
                       ? "bg-primary text-white"
                       : "text-white/70 hover:bg-white/10 hover:text-white"
                   )}
                 >
-                  <link.icon className="h-5 w-5" />
+                  <link.icon className="h-4 w-4" />
                   {link.label}
                 </Link>
               </li>
@@ -83,9 +87,9 @@ function Sidebar({ className }: { className?: string }) {
           })}
         </ul>
       </nav>
-      <div className="p-4 border-t border-white/10">
-        <div className="flex items-center gap-3 px-4 py-2">
-          <Avatar className="h-8 w-8">
+      <div className="shrink-0 border-t border-white/10 p-2">
+        <div className="flex items-center gap-3 px-3 py-2">
+          <Avatar className="h-7 w-7">
             <AvatarImage src="/placeholder.svg" />
             <AvatarFallback>{initial}</AvatarFallback>
           </Avatar>
@@ -115,7 +119,7 @@ export default function AdminLayout({
   return (
     <div className="min-h-screen bg-background">
       {/* Desktop Sidebar */}
-      <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 lg:block">
+      <aside className="fixed left-0 top-0 z-40 hidden h-dvh w-64 lg:block">
         <Sidebar />
       </aside>
 
@@ -142,9 +146,7 @@ export default function AdminLayout({
           </div>
 
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" aria-label="Admin alerts">
-              <Bell className="h-5 w-5" />
-            </Button>
+            <NotificationBell role={user.role} />
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

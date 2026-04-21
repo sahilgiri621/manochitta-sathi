@@ -7,14 +7,19 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { AdminPagination } from "@/components/admin/admin-pagination"
 import { toast } from "sonner"
 import { resourceService } from "@/services"
 import type { Resource, ResourceCategory } from "@/lib/types"
 
+const PAGE_SIZE = 10
+
 export default function AdminResourcesPage() {
   const [resources, setResources] = useState<Resource[]>([])
+  const [totalCount, setTotalCount] = useState(0)
   const [categories, setCategories] = useState<ResourceCategory[]>([])
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState({
     title: "",
@@ -29,11 +34,16 @@ export default function AdminResourcesPage() {
   const [error, setError] = useState<string | null>(null)
   const [categoryError, setCategoryError] = useState<string | null>(null)
 
-  const loadData = async () => {
+  const loadData = async (nextPage = page) => {
     setIsLoading(true)
     try {
-      const resourceData = await resourceService.listAdmin()
-      setResources(resourceData)
+      const resourceData = await resourceService.listAdminPage({
+        search: search.trim() || undefined,
+        page: nextPage,
+        pageSize: PAGE_SIZE,
+      })
+      setResources(resourceData.results)
+      setTotalCount(resourceData.count)
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load resources.")
@@ -53,9 +63,16 @@ export default function AdminResourcesPage() {
   }
 
   useEffect(() => {
-    loadData().catch(() => undefined)
     loadCategories().catch(() => undefined)
   }, [])
+
+  useEffect(() => {
+    setPage(1)
+  }, [search])
+
+  useEffect(() => {
+    loadData(page).catch(() => undefined)
+  }, [page, search])
 
   const resetForm = () => {
     setEditingId(null)
@@ -93,7 +110,7 @@ export default function AdminResourcesPage() {
         toast.success("Resource created.")
       }
       resetForm()
-      await loadData()
+      await loadData(page)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Unable to save resource.")
     } finally {
@@ -121,7 +138,7 @@ export default function AdminResourcesPage() {
       await resourceService.deleteResource(id)
       toast.success("Resource deleted.")
       if (editingId === id) resetForm()
-      await loadData()
+      await loadData(page)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Unable to delete resource.")
     }
@@ -250,16 +267,11 @@ export default function AdminResourcesPage() {
           />
           {isLoading ? <p className="text-muted-foreground">Loading resources...</p> : null}
           {error ? <p className="text-destructive">{error}</p> : null}
-          {!isLoading && !error && resources.filter((resource) =>
-            [resource.title, resource.summary, resource.category].join(" ").toLowerCase().includes(search.toLowerCase())
-          ).length === 0 ? (
+          {!isLoading && !error && resources.length === 0 ? (
             <p className="text-muted-foreground">No resources found.</p>
           ) : (
-            resources
-              .filter((resource) =>
-                [resource.title, resource.summary, resource.category].join(" ").toLowerCase().includes(search.toLowerCase())
-              )
-              .map((resource) => (
+            <>
+            {resources.map((resource) => (
               <div key={resource.id} className="rounded-lg border border-border p-4 flex items-start justify-between gap-4">
                 <div>
                   <p className="font-medium">{resource.title}</p>
@@ -275,7 +287,15 @@ export default function AdminResourcesPage() {
                   </Button>
                 </div>
               </div>
-            ))
+            ))}
+            <AdminPagination
+              page={page}
+              pageSize={PAGE_SIZE}
+              totalCount={totalCount}
+              isLoading={isLoading}
+              onPageChange={setPage}
+            />
+            </>
           )}
         </CardContent>
       </Card>

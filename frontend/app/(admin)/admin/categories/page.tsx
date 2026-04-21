@@ -6,23 +6,34 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { AdminPagination } from "@/components/admin/admin-pagination"
 import { toast } from "sonner"
 import { resourceService } from "@/services"
 import type { ResourceCategory } from "@/lib/types"
 
+const PAGE_SIZE = 10
+
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<ResourceCategory[]>([])
+  const [totalCount, setTotalCount] = useState(0)
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [editingId, setEditingId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const loadCategories = async () => {
+  const loadCategories = async (nextPage = page) => {
     setIsLoading(true)
     try {
-      setCategories(await resourceService.listCategories())
+      const data = await resourceService.listCategoriesPage({
+        search: search.trim() || undefined,
+        page: nextPage,
+        pageSize: PAGE_SIZE,
+      })
+      setCategories(data.results)
+      setTotalCount(data.count)
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load categories.")
@@ -32,8 +43,12 @@ export default function AdminCategoriesPage() {
   }
 
   useEffect(() => {
-    loadCategories().catch(() => undefined)
-  }, [])
+    setPage(1)
+  }, [search])
+
+  useEffect(() => {
+    loadCategories(page).catch(() => undefined)
+  }, [page, search])
 
   const resetForm = () => {
     setName("")
@@ -51,7 +66,7 @@ export default function AdminCategoriesPage() {
         toast.success("Category created.")
       }
       resetForm()
-      await loadCategories()
+      await loadCategories(page)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Unable to save category.")
     }
@@ -71,7 +86,7 @@ export default function AdminCategoriesPage() {
       await resourceService.deleteCategory(id)
       toast.success("Category deleted.")
       if (editingId === id) resetForm()
-      await loadCategories()
+      await loadCategories(page)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Unable to delete category.")
     }
@@ -118,16 +133,11 @@ export default function AdminCategoriesPage() {
           <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search categories" />
           {isLoading ? <p className="text-muted-foreground">Loading categories...</p> : null}
           {error ? <p className="text-destructive">{error}</p> : null}
-          {!isLoading && !error && categories.filter((category) =>
-            [category.name, category.description].join(" ").toLowerCase().includes(search.toLowerCase())
-          ).length === 0 ? (
+          {!isLoading && !error && categories.length === 0 ? (
             <p className="text-muted-foreground">No categories found.</p>
           ) : (
-            categories
-              .filter((category) =>
-                [category.name, category.description].join(" ").toLowerCase().includes(search.toLowerCase())
-              )
-              .map((category) => (
+            <>
+            {categories.map((category) => (
               <div key={category.id} className="rounded-lg border border-border p-4 flex items-start justify-between gap-4">
                 <div>
                   <p className="font-medium">{category.name}</p>
@@ -142,7 +152,15 @@ export default function AdminCategoriesPage() {
                   </Button>
                 </div>
               </div>
-            ))
+            ))}
+            <AdminPagination
+              page={page}
+              pageSize={PAGE_SIZE}
+              totalCount={totalCount}
+              isLoading={isLoading}
+              onPageChange={setPage}
+            />
+            </>
           )}
         </CardContent>
       </Card>

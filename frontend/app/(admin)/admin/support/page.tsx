@@ -1,30 +1,41 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { AdminPagination } from "@/components/admin/admin-pagination"
 import { TicketChat } from "@/components/support/ticket-chat"
 import { TicketList } from "@/components/support/ticket-list"
 import { adminService } from "@/services"
 import type { SupportTicket, SupportTicketStatus } from "@/lib/types"
 import { toast } from "sonner"
 
+const PAGE_SIZE = 10
+
 export default function AdminSupportPage() {
   const [tickets, setTickets] = useState<SupportTicket[]>([])
+  const [totalCount, setTotalCount] = useState(0)
   const [selectedId, setSelectedId] = useState("")
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
+  const [page, setPage] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
   const [isSending, setIsSending] = useState(false)
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const loadTickets = async (status?: string) => {
+  const loadTickets = async (nextPage = page) => {
     setIsLoading(true)
     try {
-      const data = await adminService.listSupportTickets({ status })
-      setTickets(data)
-      setSelectedId((current) => current || data[0]?.id || "")
+      const data = await adminService.listSupportTicketsPage({
+        status: statusFilter || undefined,
+        search: search.trim() || undefined,
+        page: nextPage,
+        pageSize: PAGE_SIZE,
+      })
+      setTickets(data.results)
+      setTotalCount(data.count)
+      setSelectedId((current) => data.results.some((ticket) => ticket.id === current) ? current : data.results[0]?.id || "")
       setError(null)
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Unable to load support tickets.")
@@ -34,28 +45,21 @@ export default function AdminSupportPage() {
   }
 
   useEffect(() => {
-    loadTickets(statusFilter || undefined).catch(() => undefined)
-  }, [statusFilter])
+    setPage(1)
+  }, [search, statusFilter])
 
-  const filteredTickets = useMemo(
-    () =>
-      tickets.filter((ticket) =>
-        [ticket.subject, ticket.userName, ticket.latestMessage, ticket.issueType, ticket.status]
-          .join(" ")
-          .toLowerCase()
-          .includes(search.toLowerCase())
-      ),
-    [tickets, search]
-  )
+  useEffect(() => {
+    loadTickets(page).catch(() => undefined)
+  }, [page, search, statusFilter])
 
-  const selectedTicket = filteredTickets.find((ticket) => ticket.id === selectedId) || tickets.find((ticket) => ticket.id === selectedId) || null
+  const selectedTicket = tickets.find((ticket) => ticket.id === selectedId) || null
 
   const handleSend = async (message: string) => {
     if (!selectedTicket) return
     setIsSending(true)
     try {
       await adminService.replyToSupportTicket(selectedTicket.id, message)
-      await loadTickets(statusFilter || undefined)
+      await loadTickets(page)
     } catch (sendError) {
       toast.error(sendError instanceof Error ? sendError.message : "Unable to send reply.")
     } finally {
@@ -68,7 +72,7 @@ export default function AdminSupportPage() {
     setIsUpdatingStatus(true)
     try {
       await adminService.updateSupportTicketStatus(selectedTicket.id, status)
-      await loadTickets(statusFilter || undefined)
+      await loadTickets(page)
       toast.success("Ticket status updated.")
     } catch (statusError) {
       toast.error(statusError instanceof Error ? statusError.message : "Unable to update ticket status.")
@@ -107,12 +111,21 @@ export default function AdminSupportPage() {
 
       {!isLoading ? (
         <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
-          <TicketList
-            tickets={filteredTickets}
-            selectedId={selectedId}
-            emptyText="No support tickets match the current filters."
-            onSelect={setSelectedId}
-          />
+          <div className="space-y-4">
+            <TicketList
+              tickets={tickets}
+              selectedId={selectedId}
+              emptyText="No support tickets match the current filters."
+              onSelect={setSelectedId}
+            />
+            <AdminPagination
+              page={page}
+              pageSize={PAGE_SIZE}
+              totalCount={totalCount}
+              isLoading={isLoading}
+              onPageChange={setPage}
+            />
+          </div>
           <TicketChat
             ticket={selectedTicket}
             viewerRole="admin"

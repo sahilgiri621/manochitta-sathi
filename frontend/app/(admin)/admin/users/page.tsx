@@ -1,16 +1,21 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConfirmActionDialog } from "@/components/admin/confirm-action-dialog"
+import { AdminPagination } from "@/components/admin/admin-pagination"
 import { toast } from "sonner"
 import { adminService } from "@/services"
 import type { User } from "@/lib/types"
+
+const PAGE_SIZE = 10
+
+type UserMode = "active" | "inactive"
 
 type UserAction = {
   user: User
@@ -21,17 +26,29 @@ type UserAction = {
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([])
+  const [totalCount, setTotalCount] = useState(0)
   const [search, setSearch] = useState("")
   const [selectedDate, setSelectedDate] = useState("")
+  const [activeTab, setActiveTab] = useState<UserMode>("active")
+  const [page, setPage] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
   const [isUpdating, setIsUpdating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pendingAction, setPendingAction] = useState<UserAction>(null)
 
-  const loadUsers = async (date = selectedDate) => {
+  const loadUsers = async (nextPage = page) => {
     setIsLoading(true)
     try {
-      setUsers(await adminService.listUsers({ role: "user", date: date || undefined }))
+      const data = await adminService.listUsersPage({
+        role: "user",
+        isActive: activeTab === "active",
+        date: selectedDate || undefined,
+        search: search.trim() || undefined,
+        page: nextPage,
+        pageSize: PAGE_SIZE,
+      })
+      setUsers(data.results)
+      setTotalCount(data.count)
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load users.")
@@ -41,29 +58,12 @@ export default function AdminUsersPage() {
   }
 
   useEffect(() => {
-    loadUsers()
-  }, [selectedDate])
+    setPage(1)
+  }, [search, selectedDate, activeTab])
 
-  const filteredUsers = useMemo(
-    () =>
-      users.filter((user) =>
-        [user.name, user.email, user.role, user.isActive === false ? "inactive deactivated" : "active activated"]
-          .join(" ")
-          .toLowerCase()
-          .includes(search.toLowerCase())
-      ),
-    [search, users]
-  )
-
-  const activeUsers = useMemo(
-    () => filteredUsers.filter((user) => user.isActive !== false),
-    [filteredUsers]
-  )
-
-  const inactiveUsers = useMemo(
-    () => filteredUsers.filter((user) => user.isActive === false),
-    [filteredUsers]
-  )
+  useEffect(() => {
+    loadUsers(page).catch(() => undefined)
+  }, [page, search, selectedDate, activeTab])
 
   const confirmAction = async () => {
     if (!pendingAction) return
@@ -76,7 +76,7 @@ export default function AdminUsersPage() {
       }
       toast.success(`User ${pendingAction.active ? "activated" : "deactivated"}.`)
       setPendingAction(null)
-      await loadUsers()
+      await loadUsers(page)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Unable to update user.")
     } finally {
@@ -84,7 +84,7 @@ export default function AdminUsersPage() {
     }
   }
 
-  const renderUserRow = (user: User, mode: "active" | "inactive") => (
+  const renderUserRow = (user: User, mode: UserMode) => (
     <div key={user.id} className="rounded-lg border border-border p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
       <div>
         <Link href={`/admin/users/${user.id}`} className="font-medium hover:text-primary">
@@ -114,11 +114,22 @@ export default function AdminUsersPage() {
     </div>
   )
 
-  const renderUserList = (items: User[], emptyMessage: string, mode: "active" | "inactive") => {
+  const renderUserList = (emptyMessage: string, mode: UserMode) => {
     if (isLoading) return <p className="text-muted-foreground">Loading users...</p>
     if (error) return <p className="text-destructive">{error}</p>
-    if (items.length === 0) return <p className="text-muted-foreground">{emptyMessage}</p>
-    return <div className="space-y-3">{items.map((user) => renderUserRow(user, mode))}</div>
+    if (users.length === 0) return <p className="text-muted-foreground">{emptyMessage}</p>
+    return (
+      <div className="space-y-3">
+        {users.map((user) => renderUserRow(user, mode))}
+        <AdminPagination
+          page={page}
+          pageSize={PAGE_SIZE}
+          totalCount={totalCount}
+          isLoading={isLoading}
+          onPageChange={setPage}
+        />
+      </div>
+    )
   }
 
   return (
@@ -146,7 +157,7 @@ export default function AdminUsersPage() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="active">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as UserMode)}>
         <TabsList>
           <TabsTrigger value="active">Active Users</TabsTrigger>
           <TabsTrigger value="inactive">Inactive Users</TabsTrigger>
@@ -158,7 +169,6 @@ export default function AdminUsersPage() {
             </CardHeader>
             <CardContent>
               {renderUserList(
-                activeUsers,
                 selectedDate ? "No active users were created on the selected day." : "No active users found.",
                 "active"
               )}
@@ -172,7 +182,6 @@ export default function AdminUsersPage() {
             </CardHeader>
             <CardContent>
               {renderUserList(
-                inactiveUsers,
                 selectedDate ? "No inactive users were created on the selected day." : "No inactive users found.",
                 "inactive"
               )}

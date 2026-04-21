@@ -83,11 +83,18 @@ function formatCurrency(value: number) {
   return `NPR ${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 }
 
+function formatDateKey(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
 function getDateKey(value: string | undefined) {
   if (!value) return null
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return null
-  return date.toISOString().slice(0, 10)
+  return formatDateKey(date)
 }
 
 function getLastDays(days: number) {
@@ -95,7 +102,7 @@ function getLastDays(days: number) {
     const date = new Date()
     date.setHours(0, 0, 0, 0)
     date.setDate(date.getDate() - (days - index - 1))
-    const key = date.toISOString().slice(0, 10)
+    const key = formatDateKey(date)
     return {
       key,
       label: date.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
@@ -125,7 +132,7 @@ export default function AdminDashboardPage() {
     Promise.allSettled([
       adminService.listUsers(),
       therapistService.listForAdmin(),
-      appointmentService.list(),
+      appointmentService.list({ allPages: true }),
       feedbackService.list(),
       adminService.listPackages(),
       adminService.listSupportTickets(),
@@ -276,17 +283,17 @@ export default function AdminDashboardPage() {
   ]
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+    <div className="space-y-3 text-[13px]">
+      <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
         <div>
-          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Live operations, approvals, appointments, payments, and feedback.</p>
+          <h1 className="text-xl font-bold">Admin Dashboard</h1>
+          <p className="text-sm text-muted-foreground">Live operations, approvals, appointments, payments, and feedback.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline">
+          <Button asChild variant="outline" size="sm">
             <Link href="/admin/appointments">Manage Appointments</Link>
           </Button>
-          <Button asChild>
+          <Button asChild size="sm">
             <Link href="/admin/therapists">Review Therapists</Link>
           </Button>
         </div>
@@ -301,38 +308,38 @@ export default function AdminDashboardPage() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         {statCards.map((stat) => (
-          <Card key={stat.label} className="border-border/80">
-            <CardContent className="p-5">
+          <Card key={stat.label} className="gap-1.5 border-border/80 py-2.5">
+            <CardContent className="p-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
-                  <p className="mt-2 text-3xl font-bold tracking-tight">{stat.value}</p>
+                  <p className="text-xs text-muted-foreground">{stat.label}</p>
+                  <p className="mt-1 text-lg font-bold tracking-tight">{stat.value}</p>
                 </div>
-                <div className="rounded-lg bg-primary/10 p-2 text-primary">
-                  <stat.icon className="h-5 w-5" />
+                <div className="rounded-lg bg-primary/10 p-1.5 text-primary">
+                  <stat.icon className="h-3.5 w-3.5" />
                 </div>
               </div>
-              <p className="mt-3 text-xs text-muted-foreground">{stat.detail}</p>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">{stat.detail}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-        <Card className="xl:col-span-2">
-          <CardHeader>
-            <CardTitle>Appointments by Status</CardTitle>
+      <div className="grid grid-cols-1 gap-2 xl:grid-cols-5">
+        <Card className="gap-1.5 py-2.5 xl:col-span-2">
+          <CardHeader className="px-3">
+            <CardTitle className="text-base">Appointments by Status</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3">
             {appointments.length === 0 ? (
               <p className="text-sm text-muted-foreground">No appointments found.</p>
             ) : (
-              <ChartContainer config={appointmentStatusConfig} className="mx-auto h-[290px] max-w-[420px]">
+              <ChartContainer config={appointmentStatusConfig} className="mx-auto h-[150px] max-w-[220px]">
                 <PieChart>
                   <ChartTooltip content={<ChartTooltipContent hideLabel nameKey="bucket" />} />
-                  <Pie data={analytics.statusData} dataKey="value" nameKey="bucket" innerRadius={62} outerRadius={92} paddingAngle={3}>
+                  <Pie data={analytics.statusData} dataKey="value" nameKey="bucket" innerRadius={26} outerRadius={44} paddingAngle={2}>
                     {analytics.statusData.map((entry) => (
                       <Cell key={entry.name} fill={entry.fill} />
                     ))}
@@ -344,12 +351,12 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="xl:col-span-3">
-          <CardHeader>
-            <CardTitle>Appointments Over Time</CardTitle>
+        <Card className="gap-1.5 py-2.5 xl:col-span-3">
+          <CardHeader className="px-3">
+            <CardTitle className="text-base">Appointments Over Time</CardTitle>
           </CardHeader>
-          <CardContent>
-            <ChartContainer config={trendConfig} className="h-[290px] w-full">
+          <CardContent className="px-3">
+            <ChartContainer config={trendConfig} className="h-[150px] w-full">
               <AreaChart data={analytics.appointmentTrend} margin={{ left: 0, right: 12, top: 8 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
@@ -366,13 +373,13 @@ export default function AdminDashboardPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Approval Overview</CardTitle>
+      <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
+        <Card className="gap-1.5 py-2.5">
+          <CardHeader className="px-3">
+            <CardTitle className="text-base">Approval Overview</CardTitle>
           </CardHeader>
-          <CardContent>
-            <ChartContainer config={approvalConfig} className="h-[260px] w-full">
+          <CardContent className="px-3">
+            <ChartContainer config={approvalConfig} className="h-[140px] w-full">
               <BarChart data={analytics.approvalData} margin={{ left: 0, right: 12, top: 8 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="category" tickLine={false} axisLine={false} tickMargin={8} />
@@ -386,12 +393,12 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Revenue Trend</CardTitle>
+        <Card className="gap-1.5 py-2.5">
+          <CardHeader className="px-3">
+            <CardTitle className="text-base">Revenue Trend</CardTitle>
           </CardHeader>
-          <CardContent>
-            <ChartContainer config={revenueConfig} className="h-[260px] w-full">
+          <CardContent className="px-3">
+            <ChartContainer config={revenueConfig} className="h-[140px] w-full">
               <AreaChart data={analytics.revenueTrend} margin={{ left: 0, right: 12, top: 8 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
@@ -403,12 +410,12 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Therapist Ratings</CardTitle>
+        <Card className="gap-1.5 py-2.5">
+          <CardHeader className="px-3">
+            <CardTitle className="text-base">Therapist Ratings</CardTitle>
           </CardHeader>
-          <CardContent>
-            <ChartContainer config={ratingConfig} className="h-[260px] w-full">
+          <CardContent className="px-3">
+            <ChartContainer config={ratingConfig} className="h-[140px] w-full">
               <BarChart data={analytics.ratingData} margin={{ left: 0, right: 12, top: 8 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="rating" tickLine={false} axisLine={false} tickMargin={8} />
@@ -421,23 +428,23 @@ export default function AdminDashboardPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Pending Therapist Applications</CardTitle>
+      <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
+        <Card className="gap-1.5 py-2.5">
+          <CardHeader className="flex flex-row items-center justify-between px-3">
+            <CardTitle className="text-base">Pending Therapist Applications</CardTitle>
             <Button asChild variant="outline" size="sm">
               <Link href="/admin/therapists">Open Queue</Link>
             </Button>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-2 px-3">
             {analytics.pendingTherapists.length === 0 ? (
               <p className="text-muted-foreground">No therapist applications are waiting for review.</p>
             ) : (
-              analytics.pendingTherapists.slice(0, 5).map((therapist) => (
-                <div key={therapist.id} className="rounded-lg border border-border p-4">
+              analytics.pendingTherapists.slice(0, 3).map((therapist) => (
+                <div key={therapist.id} className="rounded-lg border border-border p-2.5">
                   <p className="font-medium">{therapist.user.name}</p>
                   <p className="text-sm text-muted-foreground">{therapist.title || "Therapist applicant"}</p>
-                  <p className="mt-2 text-xs text-muted-foreground">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     {therapist.qualifications.join(", ") || "No qualifications supplied"}
                   </p>
                 </div>
@@ -446,26 +453,26 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Recent Feedback</CardTitle>
+        <Card className="gap-1.5 py-2.5">
+          <CardHeader className="flex flex-row items-center justify-between px-3">
+            <CardTitle className="text-base">Recent Feedback</CardTitle>
             <Button asChild variant="outline" size="sm">
               <Link href="/admin/feedback">View Feedback</Link>
             </Button>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-2 px-3">
             {feedbackEntries.length === 0 ? (
               <p className="text-muted-foreground">No feedback has been submitted yet.</p>
             ) : (
-              feedbackEntries.slice(0, 5).map((entry) => (
-                <div key={entry.id} className="rounded-lg border border-border p-4">
+              feedbackEntries.slice(0, 3).map((entry) => (
+                <div key={entry.id} className="rounded-lg border border-border p-2.5">
                   <div className="flex items-center justify-between gap-3">
                     <p className="font-medium">{entry.therapistName || "Therapist"}</p>
                     <span className="rounded-md bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800">
                       {entry.rating}/5
                     </span>
                   </div>
-                  <p className="mt-2 text-sm">{entry.comment || "No comment left."}</p>
+                  <p className="mt-1 text-sm">{entry.comment || "No comment left."}</p>
                 </div>
               ))
             )}
@@ -473,57 +480,57 @@ export default function AdminDashboardPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Package Plans</CardTitle>
+      <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
+        <Card className="gap-1.5 py-2.5">
+          <CardHeader className="flex flex-row items-center justify-between px-3">
+            <CardTitle className="text-base">Package Plans</CardTitle>
             <Button asChild variant="outline" size="sm">
               <Link href="/admin/packages">Manage</Link>
             </Button>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between rounded-lg border border-border p-4">
+          <CardContent className="px-3">
+            <div className="flex items-center justify-between rounded-lg border border-border p-2.5">
               <div>
-                <p className="text-sm text-muted-foreground">Active plans</p>
-                <p className="text-2xl font-bold">{analytics.activePackages.length}</p>
+                <p className="text-xs text-muted-foreground">Active plans</p>
+                <p className="text-lg font-bold">{analytics.activePackages.length}</p>
               </div>
-              <Activity className="h-8 w-8 text-primary" />
+              <Activity className="h-5 w-5 text-primary" />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Support Tickets</CardTitle>
+        <Card className="gap-1.5 py-2.5">
+          <CardHeader className="flex flex-row items-center justify-between px-3">
+            <CardTitle className="text-base">Support Tickets</CardTitle>
             <Button asChild variant="outline" size="sm">
               <Link href="/admin/support">Open Queue</Link>
             </Button>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between rounded-lg border border-border p-4">
+          <CardContent className="px-3">
+            <div className="flex items-center justify-between rounded-lg border border-border p-2.5">
               <div>
-                <p className="text-sm text-muted-foreground">Open tickets</p>
-                <p className="text-2xl font-bold">{analytics.openSupportTickets.length}</p>
+                <p className="text-xs text-muted-foreground">Open tickets</p>
+                <p className="text-lg font-bold">{analytics.openSupportTickets.length}</p>
               </div>
-              <LifeBuoy className="h-8 w-8 text-primary" />
+              <LifeBuoy className="h-5 w-5 text-primary" />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Resources</CardTitle>
+        <Card className="gap-1.5 py-2.5">
+          <CardHeader className="flex flex-row items-center justify-between px-3">
+            <CardTitle className="text-base">Resources</CardTitle>
             <Button asChild variant="outline" size="sm">
               <Link href="/admin/resources">Manage</Link>
             </Button>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between rounded-lg border border-border p-4">
+          <CardContent className="px-3">
+            <div className="flex items-center justify-between rounded-lg border border-border p-2.5">
               <div>
-                <p className="text-sm text-muted-foreground">Published resources</p>
-                <p className="text-2xl font-bold">{analytics.publishedResources.length}</p>
+                <p className="text-xs text-muted-foreground">Published resources</p>
+                <p className="text-lg font-bold">{analytics.publishedResources.length}</p>
               </div>
-              <UserCheck className="h-8 w-8 text-primary" />
+              <UserCheck className="h-5 w-5 text-primary" />
             </div>
           </CardContent>
         </Card>

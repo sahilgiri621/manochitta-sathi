@@ -1,14 +1,17 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { AdminPagination } from "@/components/admin/admin-pagination"
 import { toast } from "sonner"
 import { adminService } from "@/services"
 import type { PackagePlan } from "@/lib/types"
+
+const PAGE_SIZE = 10
 
 type PackageFormState = {
   name: string
@@ -32,17 +35,25 @@ const defaultForm: PackageFormState = {
 
 export default function AdminPackagesPage() {
   const [plans, setPlans] = useState<PackagePlan[]>([])
+  const [totalCount, setTotalCount] = useState(0)
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<PackageFormState>(defaultForm)
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const loadPlans = async () => {
+  const loadPlans = async (nextPage = page) => {
     setIsLoading(true)
     try {
-      setPlans(await adminService.listPackages())
+      const data = await adminService.listPackagesPage({
+        search: search.trim() || undefined,
+        page: nextPage,
+        pageSize: PAGE_SIZE,
+      })
+      setPlans(data.results)
+      setTotalCount(data.count)
       setError(null)
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Unable to load package plans.")
@@ -52,16 +63,12 @@ export default function AdminPackagesPage() {
   }
 
   useEffect(() => {
-    loadPlans().catch(() => undefined)
-  }, [])
+    setPage(1)
+  }, [search])
 
-  const filteredPlans = useMemo(
-    () =>
-      plans.filter((plan) =>
-        [plan.name, plan.slug, plan.description].join(" ").toLowerCase().includes(search.toLowerCase())
-      ),
-    [plans, search]
-  )
+  useEffect(() => {
+    loadPlans(page).catch(() => undefined)
+  }, [page, search])
 
   const resetForm = () => {
     setEditingId(null)
@@ -88,7 +95,7 @@ export default function AdminPackagesPage() {
         toast.success("Package created.")
       }
       resetForm()
-      await loadPlans()
+      await loadPlans(page)
     } catch (submitError) {
       toast.error(submitError instanceof Error ? submitError.message : "Unable to save package.")
     } finally {
@@ -115,7 +122,7 @@ export default function AdminPackagesPage() {
       await adminService.deletePackage(id)
       toast.success("Package deleted.")
       if (editingId === id) resetForm()
-      await loadPlans()
+      await loadPlans(page)
     } catch (deleteError) {
       toast.error(deleteError instanceof Error ? deleteError.message : "Unable to delete package.")
     }
@@ -125,7 +132,7 @@ export default function AdminPackagesPage() {
     try {
       await adminService.updatePackage(plan.id, { isActive: !plan.isActive })
       toast.success(plan.isActive ? "Package deactivated." : "Package activated.")
-      await loadPlans()
+      await loadPlans(page)
     } catch (toggleError) {
       toast.error(toggleError instanceof Error ? toggleError.message : "Unable to update package status.")
     }
@@ -204,10 +211,11 @@ export default function AdminPackagesPage() {
             <p className="text-muted-foreground">Loading packages...</p>
           ) : error ? (
             <p className="text-destructive">{error}</p>
-          ) : filteredPlans.length === 0 ? (
+          ) : plans.length === 0 ? (
             <p className="text-muted-foreground">No packages found.</p>
           ) : (
-            filteredPlans.map((plan) => (
+            <>
+            {plans.map((plan) => (
               <div key={plan.id} className="rounded-lg border border-border p-4 flex items-start justify-between gap-4">
                 <div>
                   <p className="font-medium">{plan.name}</p>
@@ -226,7 +234,15 @@ export default function AdminPackagesPage() {
                   <Button variant="destructive" onClick={() => handleDelete(plan.id)}>Delete</Button>
                 </div>
               </div>
-            ))
+            ))}
+            <AdminPagination
+              page={page}
+              pageSize={PAGE_SIZE}
+              totalCount={totalCount}
+              isLoading={isLoading}
+              onPageChange={setPage}
+            />
+            </>
           )}
         </CardContent>
       </Card>

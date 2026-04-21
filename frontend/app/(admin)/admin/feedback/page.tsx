@@ -1,44 +1,48 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { AdminPagination } from "@/components/admin/admin-pagination"
 import { feedbackService } from "@/services"
 import type { Feedback } from "@/lib/types"
 
+const PAGE_SIZE = 10
+
 export default function AdminFeedbackPage() {
   const [feedbackEntries, setFeedbackEntries] = useState<Feedback[]>([])
+  const [totalCount, setTotalCount] = useState(0)
   const [search, setSearch] = useState("")
   const [selectedDate, setSelectedDate] = useState("")
+  const [page, setPage] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    setPage(1)
+  }, [search, selectedDate])
+
+  useEffect(() => {
     setIsLoading(true)
     feedbackService
-      .list({ date: selectedDate || undefined })
+      .listPage({
+        date: selectedDate || undefined,
+        search: search.trim() || undefined,
+        page,
+        pageSize: PAGE_SIZE,
+      })
       .then((data) => {
-        setFeedbackEntries(data)
+        setFeedbackEntries(data.results)
+        setTotalCount(data.count)
         setError(null)
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : "Unable to load feedback.")
       })
       .finally(() => setIsLoading(false))
-  }, [selectedDate])
-
-  const filteredFeedback = useMemo(
-    () =>
-      feedbackEntries.filter((entry) =>
-        [entry.userName, entry.therapistName, entry.comment, String(entry.rating)]
-          .join(" ")
-          .toLowerCase()
-          .includes(search.toLowerCase())
-      ),
-    [feedbackEntries, search]
-  )
+  }, [page, search, selectedDate])
 
   return (
     <div className="space-y-6">
@@ -66,13 +70,13 @@ export default function AdminFeedbackPage() {
             <p className="text-muted-foreground">Loading feedback...</p>
           ) : error ? (
             <p className="text-destructive">{error}</p>
-          ) : filteredFeedback.length === 0 ? (
+          ) : feedbackEntries.length === 0 ? (
             <p className="text-muted-foreground">
               {selectedDate ? "No feedback entries were submitted on the selected day." : "No feedback entries match the current search."}
             </p>
           ) : (
             <div className="space-y-3">
-              {filteredFeedback.map((entry) => (
+              {feedbackEntries.map((entry) => (
                 <div key={entry.id} className="rounded-lg border border-border p-4">
                   <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2">
                     <div>
@@ -86,6 +90,13 @@ export default function AdminFeedbackPage() {
                   <p className="mt-3 text-sm">{entry.comment || "No written feedback provided."}</p>
                 </div>
               ))}
+              <AdminPagination
+                page={page}
+                pageSize={PAGE_SIZE}
+                totalCount={totalCount}
+                isLoading={isLoading}
+                onPageChange={setPage}
+              />
             </div>
           )}
         </CardContent>
