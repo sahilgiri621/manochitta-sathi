@@ -19,6 +19,7 @@ from .services import activate_subscription_from_lookup, create_pending_subscrip
 class PackagePlanViewSet(WrappedModelViewSet):
     serializer_class = PackagePlanSerializer
     permission_classes = [permissions.AllowAny]
+    search_fields = ("name", "slug", "description")
     ordering_fields = ("price_amount", "created_at")
 
     def get_permissions(self):

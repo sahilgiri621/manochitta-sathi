@@ -109,6 +109,41 @@ class PackageFlowTests(APITestCase):
         self.assertEqual(subscription.remaining_credits, 4)
         self.assertEqual(Notification.objects.filter(user=self.user, title="Package activated").count(), 1)
 
+    @patch("apps.packages.views.requests.post")
+    def test_repeat_verification_does_not_duplicate_activation_notification(self, mock_post):
+        initiate = Mock()
+        initiate.ok = True
+        initiate.json.return_value = {"pidx": "sub-pidx-repeat", "payment_url": "https://khalti.test/subscription"}
+        mock_post.return_value = initiate
+
+        purchase = self.client.post(f"/api/v1/packages/plans/{self.plan.id}/purchase/", {}, format="json")
+        subscription_id = purchase.data["data"]["subscription"]
+
+        with patch(
+            "apps.packages.views.lookup_khalti_payment",
+            return_value={
+                "pidx": "sub-pidx-repeat",
+                "status": "Completed",
+                "transaction_id": "sub-txn-repeat",
+                "total_amount": 500000,
+                "purchase_order_id": f"subscription-{subscription_id}",
+            },
+        ):
+            first_response = self.client.post(
+                "/api/v1/packages/subscriptions/verify/",
+                {"subscription": subscription_id, "pidx": "sub-pidx-repeat"},
+                format="json",
+            )
+            second_response = self.client.post(
+                "/api/v1/packages/subscriptions/verify/",
+                {"subscription": subscription_id, "pidx": "sub-pidx-repeat"},
+                format="json",
+            )
+
+        self.assertEqual(first_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(second_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(Notification.objects.filter(user=self.user, title="Package activated").count(), 1)
+
     @patch("apps.packages.services.create_google_meet_event_for_appointment")
     def test_booking_with_subscription_consumes_credit_and_confirms(self, mock_create_meeting):
         mock_create_meeting.return_value = Mock(

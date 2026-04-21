@@ -67,6 +67,10 @@ def activate_subscription_from_lookup(subscription: UserSubscription, lookup_dat
 
     with transaction.atomic():
         subscription = UserSubscription.objects.select_for_update().select_related("plan", "user").get(pk=subscription.pk)
+        was_already_active = (
+            subscription.status == UserSubscription.STATUS_ACTIVE
+            and subscription.payment_status == UserSubscription.PAYMENT_PAID
+        )
         subscription.khalti_pidx = pidx
         subscription.payment_transaction_id = transaction_id
         subscription.paid_amount = total_amount
@@ -82,13 +86,14 @@ def activate_subscription_from_lookup(subscription: UserSubscription, lookup_dat
             subscription.total_credits = subscription.total_credits or subscription.plan.session_credits
             if subscription.remaining_credits <= 0:
                 subscription.remaining_credits = subscription.plan.session_credits
-            Notification.objects.create(
-                user=subscription.user,
-                title="Package activated",
-                message=f"Your {subscription.plan.name} package is active with {subscription.remaining_credits} session credits.",
-                notification_type=Notification.TYPE_APPOINTMENT,
-                metadata={"subscription_id": subscription.id, "plan_id": subscription.plan_id},
-            )
+            if not was_already_active:
+                Notification.objects.create(
+                    user=subscription.user,
+                    title="Package activated",
+                    message=f"Your {subscription.plan.name} package is active with {subscription.remaining_credits} session credits.",
+                    notification_type=Notification.TYPE_APPOINTMENT,
+                    metadata={"subscription_id": subscription.id, "plan_id": subscription.plan_id},
+                )
         elif normalized_status in {"pending", "initiated"}:
             subscription.status = UserSubscription.STATUS_PENDING_PAYMENT
             subscription.payment_status = UserSubscription.PAYMENT_PENDING
