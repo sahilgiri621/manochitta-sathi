@@ -9,7 +9,7 @@ from rest_framework.test import APITestCase
 from apps.appointments.models import Appointment
 from apps.feedback.models import Feedback
 from apps.profiles.models import UserProfile
-from .models import TherapistAvailability, TherapistClinic, TherapistProfile
+from .models import TherapistAvailability, TherapistClinic, TherapistCommissionRule, TherapistProfile
 
 User = get_user_model()
 PNG_1X1 = (
@@ -51,6 +51,7 @@ class TherapistApiTests(APITestCase):
         results = response.data["data"]["results"]
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["user"]["email"], self.therapist_user.email)
+        self.assertNotIn("total_earnings", results[0])
 
     def test_public_root_listing_alias_returns_approved_therapists_only(self):
         response = self.client.get("/api/v1/therapists/")
@@ -221,6 +222,37 @@ class TherapistApiTests(APITestCase):
         returned_ids = {item["id"] for item in results}
         self.assertIn(pending_profile.id, returned_ids)
         self.assertNotIn(self.therapist_profile.id, returned_ids)
+
+    def test_admin_can_edit_commission_rules(self):
+        admin = User.objects.create_user(
+            email="commission-admin@example.com",
+            password="AdminPass123!",
+            first_name="Admin",
+            role="admin",
+            is_staff=True,
+            is_email_verified=True,
+        )
+        login = self.client.post(
+            "/api/v1/auth/login/",
+            {"email": admin.email, "password": "AdminPass123!"},
+            format="json",
+        )
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['data']['access']}")
+
+        list_response = self.client.get("/api/v1/therapists/commission-rules/")
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(list_response.data["data"]["results"]), 3)
+        starter = TherapistCommissionRule.objects.get(tier_name="Starter")
+
+        update_response = self.client.patch(
+            f"/api/v1/therapists/commission-rules/{starter.id}/",
+            {"commission_rate": "0.12"},
+            format="json",
+        )
+
+        self.assertEqual(update_response.status_code, status.HTTP_200_OK)
+        starter.refresh_from_db()
+        self.assertEqual(str(starter.commission_rate), "0.1200")
 
     def test_therapist_can_create_and_update_own_clinic(self):
         login = self.client.post(

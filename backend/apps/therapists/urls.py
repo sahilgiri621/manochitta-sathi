@@ -1,12 +1,18 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from .views import TherapistApplicationView, TherapistAvailabilityViewSet, TherapistProfileViewSet
+from .views import (
+    TherapistApplicationView,
+    TherapistAvailabilityViewSet,
+    TherapistCommissionRuleViewSet,
+    TherapistProfileViewSet,
+)
 
 router = DefaultRouter()
 router.trailing_slash = "/?"
 router.register("profiles", TherapistProfileViewSet, basename="therapist-profiles")
 router.register("availability", TherapistAvailabilityViewSet, basename="therapist-availability")
+router.register("commission-rules", TherapistCommissionRuleViewSet, basename="therapist-commission-rules")
 
 public_therapist_list = TherapistProfileViewSet.as_view({"get": "list"})
 public_therapist_detail = TherapistProfileViewSet.as_view({"get": "retrieve"})

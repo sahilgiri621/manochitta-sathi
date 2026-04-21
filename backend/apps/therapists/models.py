@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.core.validators import FileExtensionValidator
 from django.db import models
@@ -35,6 +37,10 @@ class TherapistProfile(TimeStampedModel):
     )
     approved_at = models.DateTimeField(null=True, blank=True)
     consultation_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    completed_sessions = models.PositiveIntegerField(default=0)
+    commission_rate = models.DecimalField(max_digits=5, decimal_places=4, default=Decimal("0.10"))
+    commission_tier = models.CharField(max_length=100, default="Starter")
+    total_earnings = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     languages = models.CharField(max_length=255, blank=True)
     profile_image = models.ImageField(
         upload_to=therapist_profile_image_upload_to,
@@ -50,6 +56,29 @@ class TherapistProfile(TimeStampedModel):
 
     def __str__(self):
         return f"Therapist<{self.user.email}>"
+
+
+class TherapistCommissionRule(TimeStampedModel):
+    tier_name = models.CharField(max_length=100, unique=True)
+    min_sessions = models.PositiveIntegerField(default=0)
+    max_sessions = models.PositiveIntegerField(null=True, blank=True)
+    commission_rate = models.DecimalField(max_digits=5, decimal_places=4)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("min_sessions", "id")
+        indexes = [
+            models.Index(fields=["is_active", "min_sessions"]),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(max_sessions__isnull=True) | models.Q(max_sessions__gte=models.F("min_sessions")),
+                name="commission_rule_max_after_min",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.tier_name} ({self.commission_rate})"
 
 
 class TherapistClinic(TimeStampedModel):

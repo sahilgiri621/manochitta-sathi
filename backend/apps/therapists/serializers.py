@@ -8,7 +8,8 @@ from apps.accounts.models import User
 from apps.appointments.models import Appointment
 from apps.profiles.models import UserProfile
 
-from .models import TherapistAvailability, TherapistClinic, TherapistProfile
+from .commission import get_next_commission_rule
+from .models import TherapistAvailability, TherapistClinic, TherapistCommissionRule, TherapistProfile
 
 
 class TherapistAvailabilitySerializer(serializers.ModelSerializer):
@@ -80,6 +81,8 @@ class TherapistProfileSerializer(serializers.ModelSerializer):
     clinic = TherapistClinicSerializer(read_only=True)
     rating = serializers.SerializerMethodField(read_only=True)
     review_count = serializers.SerializerMethodField(read_only=True)
+    next_tier_name = serializers.SerializerMethodField(read_only=True)
+    next_tier_min_sessions = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = TherapistProfile
@@ -95,6 +98,12 @@ class TherapistProfileSerializer(serializers.ModelSerializer):
             "license_number",
             "approval_status",
             "consultation_fee",
+            "completed_sessions",
+            "commission_rate",
+            "commission_tier",
+            "total_earnings",
+            "next_tier_name",
+            "next_tier_min_sessions",
             "languages",
             "profile_image",
             "profile_image_url",
@@ -105,7 +114,16 @@ class TherapistProfileSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("approval_status", "approved_at")
+        read_only_fields = (
+            "approval_status",
+            "approved_at",
+            "completed_sessions",
+            "commission_rate",
+            "commission_tier",
+            "total_earnings",
+            "next_tier_name",
+            "next_tier_min_sessions",
+        )
 
     def get_profile_image_url(self, obj):
         if not obj.profile_image:
@@ -131,6 +149,43 @@ class TherapistProfileSerializer(serializers.ModelSerializer):
     def get_review_count(self, obj):
         summary = self._get_feedback_summary(obj)
         return int(summary.get("total_reviews") or 0)
+
+    def _can_view_commission(self, obj):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return False
+        return user.role == "admin" or obj.user_id == user.id
+
+    def _get_next_rule(self, obj):
+        if not self._can_view_commission(obj):
+            return None
+        if hasattr(obj, "_next_commission_rule_cache"):
+            return obj._next_commission_rule_cache
+        obj._next_commission_rule_cache = get_next_commission_rule(obj)
+        return obj._next_commission_rule_cache
+
+    def get_next_tier_name(self, obj):
+        rule = self._get_next_rule(obj)
+        return rule.tier_name if rule else ""
+
+    def get_next_tier_min_sessions(self, obj):
+        rule = self._get_next_rule(obj)
+        return rule.min_sessions if rule else None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if not self._can_view_commission(instance):
+            for field in (
+                "completed_sessions",
+                "commission_rate",
+                "commission_tier",
+                "total_earnings",
+                "next_tier_name",
+                "next_tier_min_sessions",
+            ):
+                data.pop(field, None)
+        return data
 
     def validate_profile_image(self, value):
         if not value:
@@ -227,3 +282,26 @@ class TherapistApprovalSerializer(serializers.Serializer):
         if value == TherapistProfile.STATUS_PENDING:
             raise serializers.ValidationError("Pending is not a valid approval action.")
         return value
+
+
+class TherapistCommissionRuleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TherapistCommissionRule
+        fields = (
+            "id",
+            "tier_name",
+            "min_sessions",
+            "max_sessions",
+            "commission_rate",
+            "is_active",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = ("id", "created_at", "updated_at")
+
+    def validate(self, attrs):
+        min_sessions = attrs.get("min_sessions", getattr(self.instance, "min_sessions", 0))
+        max_sessions = attrs.get("max_sessions", getattr(self.instance, "max_sessions", None))
+        if max_sessions is not None and max_sessions < min_sessions:
+            raise serializers.ValidationError("Maximum sessions must be greater than or equal to minimum sessions.")
+        return attrs

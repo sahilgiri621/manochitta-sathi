@@ -15,12 +15,14 @@ from apps.common.responses import api_response
 from apps.common.viewsets import WrappedModelViewSet, WrappedReadOnlyModelViewSet
 from apps.notifications.models import Notification
 
-from .models import TherapistAvailability, TherapistProfile
+from .commission import ensure_default_commission_rules, sync_therapist_commission_summary
+from .models import TherapistAvailability, TherapistCommissionRule, TherapistProfile
 from .serializers import (
     TherapistApplicationSerializer,
     TherapistApprovalSerializer,
     TherapistAvailabilitySerializer,
     TherapistClinicSerializer,
+    TherapistCommissionRuleSerializer,
     TherapistProfileSerializer,
 )
 
@@ -51,6 +53,10 @@ class TherapistProfileViewSet(WrappedReadOnlyModelViewSet):
         queryset = TherapistProfile.objects.prefetch_related("user__profile", "clinic").order_by("-pk")
         user = self.request.user
         queryset = filter_queryset_by_date(queryset, "created_at", self.request.query_params.get("date"))
+        approval_status = self.request.query_params.get("approval_status")
+        if approval_status:
+            statuses = [value.strip() for value in approval_status.split(",") if value.strip()]
+            queryset = queryset.filter(approval_status__in=statuses)
         if user.is_authenticated and user.role == "admin":
             return queryset
         queryset = queryset.filter(approval_status=TherapistProfile.STATUS_APPROVED)
@@ -173,3 +179,25 @@ class TherapistAvailabilityViewSet(WrappedModelViewSet):
         ).exists():
             raise ValidationError("Booked availability slots cannot be deleted.")
         instance.delete()
+
+
+class TherapistCommissionRuleViewSet(WrappedModelViewSet):
+    serializer_class = TherapistCommissionRuleSerializer
+    permission_classes = [IsAdminRole]
+    ordering_fields = ("min_sessions", "commission_rate", "created_at")
+
+    def get_queryset(self):
+        ensure_default_commission_rules()
+        return TherapistCommissionRule.objects.all().order_by("min_sessions", "id")
+
+    def _sync_all_therapists(self):
+        for therapist in TherapistProfile.objects.all():
+            sync_therapist_commission_summary(therapist)
+
+    def perform_create(self, serializer):
+        serializer.save()
+        self._sync_all_therapists()
+
+    def perform_update(self, serializer):
+        serializer.save()
+        self._sync_all_therapists()
