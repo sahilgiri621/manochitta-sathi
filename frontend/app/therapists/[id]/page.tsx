@@ -9,6 +9,17 @@ import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { BookingDisclaimerDialog } from "@/components/payments/booking-disclaimer-dialog"
 import { ClinicDisplayMap } from "@/components/maps/clinic-display-map"
 import {
   Select,
@@ -40,6 +51,8 @@ export default function TherapistDetailPage({
   const [subscriptions, setSubscriptions] = useState<UserSubscription[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isBooking, setIsBooking] = useState(false)
+  const [showPaymentDisclaimer, setShowPaymentDisclaimer] = useState(false)
+  const [showSubscriptionConfirmation, setShowSubscriptionConfirmation] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -127,6 +140,14 @@ export default function TherapistDetailPage({
     }
   }
 
+  const openBookingFlow = () => {
+    if (bookingMode === "single") {
+      setShowPaymentDisclaimer(true)
+      return
+    }
+    setShowSubscriptionConfirmation(true)
+  }
+
   if (isLoading) {
     return <div className="min-h-screen bg-background"><Navbar /><div className="py-16 text-center">Loading therapist...</div><Footer /></div>
   }
@@ -207,8 +228,8 @@ export default function TherapistDetailPage({
               </CardHeader>
               <CardContent className="space-y-2">
                 {therapist.qualifications.length > 0 ? (
-                  therapist.qualifications.map((item) => (
-                    <div key={item} className="flex items-center gap-2 text-sm">
+                  therapist.qualifications.map((item, index) => (
+                    <div key={`${item}-${index}`} className="flex items-center gap-2 text-sm">
                       <Check className="h-4 w-4 text-primary" />
                       {item}
                     </div>
@@ -382,7 +403,7 @@ export default function TherapistDetailPage({
 
                 <Button
                   className="w-full"
-                  onClick={handleBook}
+                  onClick={openBookingFlow}
                   disabled={isBooking || !selectedSlot || (bookingMode === "package" && !activeSubscription)}
                 >
                   {isBooking ? "Booking..." : bookingMode === "package" ? "Book with subscription" : "Continue to payment"}
@@ -393,6 +414,44 @@ export default function TherapistDetailPage({
         </div>
       </main>
       <Footer />
+
+      <BookingDisclaimerDialog
+        open={showPaymentDisclaimer}
+        title="Continue with this therapist booking?"
+        confirmLabel="Continue to pay"
+        isWorking={isBooking}
+        onOpenChange={setShowPaymentDisclaimer}
+        onConfirm={() => {
+          handleBook()
+            .then(() => setShowPaymentDisclaimer(false))
+            .catch(() => undefined)
+        }}
+      />
+
+      <AlertDialog open={showSubscriptionConfirmation} onOpenChange={setShowSubscriptionConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Use your subscription credit for this booking?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will use one credit from your active package for the selected therapist slot.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBooking}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isBooking}
+              onClick={(event) => {
+                event.preventDefault()
+                handleBook()
+                  .then(() => setShowSubscriptionConfirmation(false))
+                  .catch(() => undefined)
+              }}
+            >
+              {isBooking ? "Booking..." : "Confirm booking"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

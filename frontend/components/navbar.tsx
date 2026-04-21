@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Logo } from "@/components/logo"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/components/providers/auth-provider"
+import { NotificationBell } from "@/components/notifications/notification-bell"
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -52,6 +53,7 @@ export function Navbar() {
         <div className="hidden md:flex items-center gap-3">
           {user ? (
             <>
+              <NotificationBell role={user.role} />
               <Button variant="ghost" asChild>
                 <Link href={dashboardHref}>Dashboard</Link>
               </Button>
@@ -105,6 +107,10 @@ export function Navbar() {
             <div className="flex flex-col gap-2 pt-4 border-t border-border">
               {user ? (
                 <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-muted-foreground">Notifications</span>
+                    <NotificationBell role={user.role} />
+                  </div>
                   <Button variant="outline" asChild className="w-full">
                     <Link href={dashboardHref}>Dashboard</Link>
                   </Button>

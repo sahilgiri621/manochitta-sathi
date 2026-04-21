@@ -60,7 +60,7 @@ export default function HomePage() {
 
           {/* Therapy Type Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto">
-            <Link href="/register?type=individual">
+            <Link href="/services#plans-and-pricing">
               <Card className="hover:shadow-lg transition-shadow cursor-pointer bg-card">
                 <CardContent className="p-6 text-center">
                   <div className="w-16 h-16 mx-auto mb-4 bg-accent rounded-full flex items-center justify-center">
@@ -71,7 +71,7 @@ export default function HomePage() {
                 </CardContent>
               </Card>
             </Link>
-            <Link href="/register?type=couples">
+            <Link href="/services#plans-and-pricing">
               <Card className="hover:shadow-lg transition-shadow cursor-pointer bg-card">
                 <CardContent className="p-6 text-center">
                   <div className="w-16 h-16 mx-auto mb-4 bg-accent rounded-full flex items-center justify-center">
@@ -82,7 +82,7 @@ export default function HomePage() {
                 </CardContent>
               </Card>
             </Link>
-            <Link href="/register?type=teen">
+            <Link href="/services#plans-and-pricing">
               <Card className="hover:shadow-lg transition-shadow cursor-pointer bg-card">
                 <CardContent className="p-6 text-center">
                   <div className="w-16 h-16 mx-auto mb-4 bg-accent rounded-full flex items-center justify-center">

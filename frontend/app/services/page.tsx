@@ -7,6 +7,7 @@ import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { BookingDisclaimerDialog } from "@/components/payments/booking-disclaimer-dialog"
 import { useAuth } from "@/components/providers/auth-provider"
 import { packageService } from "@/services"
 import type { PackagePlan, UserSubscription } from "@/lib/types"
@@ -127,6 +128,7 @@ export default function ServicesPage() {
   const [subscriptions, setSubscriptions] = useState<UserSubscription[]>([])
   const [isLoadingPlans, setIsLoadingPlans] = useState(true)
   const [buyingPlanId, setBuyingPlanId] = useState<string | null>(null)
+  const [pendingPlanId, setPendingPlanId] = useState<string | null>(null)
   const [packageError, setPackageError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -244,7 +246,7 @@ export default function ServicesPage() {
       </section>
 
       {/* How You Can Connect */}
-      <section className="py-16 bg-card">
+      <section id="plans-and-pricing" className="py-16 bg-card scroll-mt-24">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-foreground mb-4">How You Can Connect</h2>
@@ -416,7 +418,7 @@ export default function ServicesPage() {
                     </ul>
                     <Button
                       className="w-full"
-                      onClick={() => handlePurchase(plan.id)}
+                      onClick={() => setPendingPlanId(plan.id)}
                       disabled={buyingPlanId === plan.id}
                     >
                       {buyingPlanId === plan.id ? "Redirecting..." : "Choose Plan"}
@@ -445,6 +447,22 @@ export default function ServicesPage() {
       </section>
 
       <Footer />
+
+      <BookingDisclaimerDialog
+        open={Boolean(pendingPlanId)}
+        title="Continue with this package purchase?"
+        confirmLabel="Continue to pay"
+        isWorking={Boolean(pendingPlanId && buyingPlanId === pendingPlanId)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingPlanId(null)
+          }
+        }}
+        onConfirm={() => {
+          if (!pendingPlanId) return
+          handlePurchase(pendingPlanId).finally(() => setPendingPlanId(null))
+        }}
+      />
     </div>
   )
 }
