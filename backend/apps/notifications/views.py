@@ -17,7 +17,11 @@ class NotificationViewSet(WrappedModelViewSet):
 
     def get_queryset(self):
         queryset = Notification.objects.filter(user=self.request.user)
-        return filter_queryset_by_date(queryset, "created_at", self.request.query_params.get("date"))
+        queryset = filter_queryset_by_date(queryset, "created_at", self.request.query_params.get("date"))
+        is_read = self.request.query_params.get("is_read")
+        if is_read in {"true", "false"}:
+            queryset = queryset.filter(is_read=(is_read == "true"))
+        return queryset
 
     @action(detail=True, methods=["post"])
     def mark_read(self, request, pk=None):

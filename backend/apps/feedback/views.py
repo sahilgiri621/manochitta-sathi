@@ -12,6 +12,7 @@ class FeedbackViewSet(WrappedModelViewSet):
     serializer_class = FeedbackSerializer
     permission_classes = [permissions.IsAuthenticated]
     http_method_names = ["get", "post", "head", "options"]
+    search_fields = ("comment", "user__first_name", "user__last_name", "therapist__user__first_name", "therapist__user__last_name")
     ordering_fields = ("created_at", "rating")
 
     def get_permissions(self):

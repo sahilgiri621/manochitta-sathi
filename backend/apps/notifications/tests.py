@@ -64,3 +64,18 @@ class NotificationApiTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["data"]["count"], 1)
+
+    def test_user_can_filter_unread_notifications(self):
+        Notification.objects.create(
+            user=self.user,
+            title="Read notice",
+            message="This should not appear in unread results.",
+            notification_type=Notification.TYPE_GENERAL,
+            is_read=True,
+        )
+
+        response = self.client.get("/api/v1/notifications/?is_read=false")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["data"]["count"], 1)
+        self.assertFalse(response.data["data"]["results"][0]["is_read"])
