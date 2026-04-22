@@ -27,20 +27,20 @@ import { PlatformStatsSection } from "@/components/home/platform-stats"
 import { CrisisSupportBanner } from "@/components/crisis-support-banner"
 
 const comparisonFeatures = [
-  { feature: "24/7 access", mannochitta: true, office: false },
-  { feature: "Manageable fees", mannochitta: true, office: false },
-  { feature: "Convenient scheduling", mannochitta: true, office: false },
-  { feature: "Communicate at your comfort level", mannochitta: true, office: false },
-  { feature: "Messaging any time", mannochitta: true, office: false },
-  { feature: "Chat sessions", mannochitta: true, office: false },
-  { feature: "Phone sessions", mannochitta: true, office: false },
-  { feature: "Video sessions", mannochitta: true, office: true },
-  { feature: "Easy scheduling", mannochitta: true, office: false },
-  { feature: "Digital worksheets", mannochitta: true, office: false },
-  { feature: "Group sessions", mannochitta: true, office: true },
-  { feature: "Smart provider matching", mannochitta: true, office: false },
-  { feature: "Easy to switch providers", mannochitta: true, office: false },
-  { feature: "Access from anywhere", mannochitta: true, office: false },
+  { feature: "24/7 access", manochitta: true, office: false },
+  { feature: "Manageable fees", manochitta: true, office: false },
+  { feature: "Convenient scheduling", manochitta: true, office: false },
+  { feature: "Communicate at your comfort level", manochitta: true, office: false },
+  { feature: "Messaging any time", manochitta: true, office: false },
+  { feature: "Chat sessions", manochitta: true, office: false },
+  { feature: "Phone sessions", manochitta: true, office: false },
+  { feature: "Video sessions", manochitta: true, office: true },
+  { feature: "Easy scheduling", manochitta: true, office: false },
+  { feature: "Digital worksheets", manochitta: true, office: false },
+  { feature: "Group sessions", manochitta: true, office: true },
+  { feature: "Smart provider matching", manochitta: true, office: false },
+  { feature: "Easy to switch providers", manochitta: true, office: false },
+  { feature: "Access from anywhere", manochitta: true, office: false },
 ]
 
 export default function HomePage() {
@@ -160,13 +160,13 @@ export default function HomePage() {
       <section className="py-16">
         <div className="container mx-auto px-4">
           <h2 className="text-2xl md:text-3xl font-bold text-foreground text-center mb-12">
-            Why choose Mannochitta Sathi?
+            Why choose Manochitta Sathi?
           </h2>
 
           <div className="max-w-2xl mx-auto">
             <div className="grid grid-cols-3 gap-4 mb-4 text-center font-semibold">
               <div></div>
-              <div className="text-primary">Mannochitta Sathi</div>
+              <div className="text-primary">Manochitta Sathi</div>
               <div className="text-muted-foreground">In-office</div>
             </div>
             {comparisonFeatures.slice(0, 8).map((item, index) => (
@@ -176,7 +176,7 @@ export default function HomePage() {
               >
                 <div className="text-sm text-foreground">{item.feature}</div>
                 <div className="text-center">
-                  {item.mannochitta ? (
+                  {item.manochitta ? (
                     <CheckCircle2 className="w-5 h-5 text-primary mx-auto" />
                   ) : (
                     <XCircle className="w-5 h-5 text-muted-foreground mx-auto" />
@@ -236,7 +236,8 @@ export default function HomePage() {
             Ready to get started?
           </h2>
           <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-            Take the first step towards better mental health. Get matched with a therapist in under 48 hours.
+            Take the first step toward better mental health. Get matched with a therapist in
+            under 48 hours.
           </p>
           <Button asChild size="lg">
             <Link href="/register">Get matched with a therapist</Link>
