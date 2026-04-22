@@ -2247,20 +2247,6 @@ class ApiService {
     return results.map((item) => normalizeConversation(item));
   }
 
-  async createConversation(
-    appointment: string,
-    therapist: string,
-  ): Promise<Conversation> {
-    const data = await this.request<Record<string, unknown>>(
-      "/communications/conversations/",
-      {
-        method: "POST",
-        body: JSON.stringify({ appointment, therapist }),
-      },
-    );
-    return normalizeConversation(data);
-  }
-
   async getMessages(conversationId?: string): Promise<Message[]> {
     const query = conversationId ? `?conversation=${conversationId}` : "";
     const data = await this.request<

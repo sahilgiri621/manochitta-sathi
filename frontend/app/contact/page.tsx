@@ -46,7 +46,7 @@ const contactInfo = [
   {
     icon: Phone,
     title: "Phone",
-    value: "+977 01-XXXXXXX",
+    value: "+977 01-4827319",
     description: "Mon-Fri, 9am-6pm NPT",
   },
   {
