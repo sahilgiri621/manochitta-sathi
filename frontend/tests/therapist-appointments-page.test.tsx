@@ -130,4 +130,63 @@ describe("Therapist appointments page", () => {
       )
     )
   })
+
+  it("requires a therapist reason before marking a follow-up appointment as missed", async () => {
+    listAppointments.mockResolvedValueOnce([
+      {
+        id: "a1",
+        userId: "u1",
+        userName: "Patient One",
+        therapistId: "t1",
+        therapistName: "Dr Calm",
+        availabilitySlotId: "slot-1",
+        sessionType: "video",
+        scheduledStart: "2020-01-01T10:00:00Z",
+        scheduledEnd: "2020-01-01T10:50:00Z",
+        status: "confirmed",
+        paymentStatus: "paid",
+        paymentProvider: "khalti",
+        paidAmount: 250000,
+        khaltiPidx: "pidx-1",
+        paymentTransactionId: "txn-1",
+        paymentInitiatedAt: "2020-01-01T09:00:00Z",
+        paymentVerifiedAt: "2020-01-01T09:05:00Z",
+        meetingProvider: "google_meet",
+        meetingLink: "https://meet.google.com/test-link",
+        externalCalendarEventId: "calendar-event-1",
+        meetingStatus: "ready",
+        meetingCreatedAt: "2020-01-01T09:05:30Z",
+        notes: "",
+        cancellationReason: "",
+        therapistResponseNote: "",
+        rescheduledFrom: null,
+        requiresAttendanceConfirmation: true,
+        events: [],
+        createdAt: "2020-01-01T09:00:00Z",
+        updatedAt: "2020-01-01T09:05:30Z",
+      },
+    ])
+    confirmAttendance.mockResolvedValue({})
+
+    render(<TherapistAppointmentsPage />)
+
+    fireEvent.click(await screen.findByRole("tab", { name: /follow up/i }))
+    await screen.findByText("Patient One")
+    fireEvent.click(screen.getByRole("button", { name: /mark missed/i }))
+    expect(screen.getByText(/why was this session missed/i)).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /mark session missed/i })).toBeDisabled()
+
+    fireEvent.change(screen.getByLabelText(/therapist reason/i), {
+      target: { value: "I was unavailable and could not join the call." },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /mark session missed/i }))
+
+    await waitFor(() =>
+      expect(confirmAttendance).toHaveBeenCalledWith(
+        "a1",
+        false,
+        "I was unavailable and could not join the call.",
+      ),
+    )
+  })
 })

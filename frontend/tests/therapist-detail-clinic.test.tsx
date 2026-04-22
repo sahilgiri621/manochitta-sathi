@@ -15,6 +15,12 @@ vi.mock("react", async () => {
   }
 })
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+  }),
+}))
+
 vi.mock("@/components/navbar", () => ({ Navbar: () => <div /> }))
 vi.mock("@/components/footer", () => ({ Footer: () => <div /> }))
 vi.mock("@/components/providers/auth-provider", () => ({

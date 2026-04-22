@@ -36,7 +36,7 @@ describe("Khalti return page", () => {
     })
   })
 
-  it("shows verified success after backend lookup", async () => {
+  it("shows verified success", async () => {
     render(<PublicKhaltiPaymentResultPage />)
 
     expect(await screen.findByText(/payment successful/i)).toBeInTheDocument()
