@@ -42,25 +42,22 @@ class CommunicationApiTests(APITestCase):
             payment_status=Appointment.PAYMENT_PAID,
         )
 
-    def test_user_can_create_conversation_and_send_message(self):
+    def test_user_can_send_message_in_existing_conversation(self):
         login = self.client.post(
             "/api/v1/auth/login/",
             {"email": self.user.email, "password": "UserPass123!"},
             format="json",
         )
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['data']['access']}")
-        conversation_response = self.client.post(
-            "/api/v1/communications/conversations/",
-            {"appointment": self.appointment.id, "therapist": self.therapist.id},
-            format="json",
+        conversation = Conversation.objects.create(
+            appointment=self.appointment,
+            user=self.user,
+            therapist=self.therapist,
         )
-        self.assertEqual(conversation_response.status_code, status.HTTP_201_CREATED)
-        conversation_id = conversation_response.data["data"]["id"]
         message_response = self.client.post(
             "/api/v1/communications/messages/",
-            {"conversation": conversation_id, "content": "Hello therapist"},
+            {"conversation": conversation.id, "content": "Hello therapist"},
             format="json",
         )
         self.assertEqual(message_response.status_code, status.HTTP_201_CREATED)
-        self.assertTrue(Conversation.objects.filter(pk=conversation_id).exists())
-        self.assertTrue(Message.objects.filter(conversation_id=conversation_id, content="Hello therapist").exists())
+        self.assertTrue(Message.objects.filter(conversation_id=conversation.id, content="Hello therapist").exists())

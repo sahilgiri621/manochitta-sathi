@@ -1,13 +1,13 @@
 from rest_framework import permissions
 from rest_framework.exceptions import PermissionDenied
 
-from apps.common.viewsets import WrappedModelViewSet
+from apps.common.viewsets import WrappedModelViewSet, WrappedReadOnlyModelViewSet
 
 from .models import Conversation, Message
 from .serializers import ConversationSerializer, MessageSerializer
 
 
-class ConversationViewSet(WrappedModelViewSet):
+class ConversationViewSet(WrappedReadOnlyModelViewSet):
     serializer_class = ConversationSerializer
     permission_classes = [permissions.IsAuthenticated]
     ordering_fields = ("created_at",)
@@ -20,11 +20,6 @@ class ConversationViewSet(WrappedModelViewSet):
         if user.role == "therapist":
             return queryset.filter(therapist__user=user)
         return queryset.filter(user=user)
-
-    def perform_create(self, serializer):
-        if self.request.user.role != "user":
-            raise PermissionDenied("Only users can start conversations directly.")
-        serializer.save(user=self.request.user)
 
 
 class MessageViewSet(WrappedModelViewSet):
