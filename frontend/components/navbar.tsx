@@ -19,6 +19,14 @@ const navLinks = [
   { href: "/jobs", label: "Careers" },
 ]
 
+function isActivePath(pathname: string, href: string) {
+  if (href === "/") {
+    return pathname === href
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`)
+}
+
 export function Navbar() {
   const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -39,7 +47,7 @@ export function Navbar() {
               href={link.href}
               className={cn(
                 "text-sm font-medium transition-colors hover:text-primary",
-                pathname === link.href
+                isActivePath(pathname, link.href)
                   ? "text-primary"
                   : "text-muted-foreground"
               )}
@@ -96,7 +104,7 @@ export function Navbar() {
                 onClick={() => setMobileMenuOpen(false)}
                 className={cn(
                   "text-sm font-medium transition-colors hover:text-primary py-2",
-                  pathname === link.href
+                  isActivePath(pathname, link.href)
                     ? "text-primary"
                     : "text-muted-foreground"
                 )}
